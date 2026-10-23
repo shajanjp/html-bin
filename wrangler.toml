@@ -1,0 +1,9 @@
+name = "html-bin"
+main = "index.ts"
+compatibility_date = "2026-10-01"
+
+# Bind the KV namespace to the Worker
+# The binding name "HTML_BIN" is used in the code as env.HTML_BIN
+[[kv_namespaces]]
+binding = "HTML_BIN"
+id = "66b7d6d25c144186b211fa5273b32ab4"

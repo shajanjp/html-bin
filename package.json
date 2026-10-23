@@ -1,0 +1,16 @@
+{
+  "name": "html-bin",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "types": "wrangler types",
+    "check": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261019.1",
+    "typescript": "^5.6.3",
+    "wrangler": "^4"
+  }
+}
