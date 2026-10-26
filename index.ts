@@ -1,3 +1,6 @@
+import listingTemplate from "./pages/listing.html";
+import submitTemplate from "./pages/submit.html";
+
 export interface Env {
   HTML_BIN: KVNamespace;
   BASIC_AUTH_USERNAME: string;
@@ -105,38 +108,27 @@ async function renderListing(env: Env, origin: string): Promise<Response> {
     )
     .join("");
 
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Published Pages (${pages.length})</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; background: #fafafa; }
-    h1 { font-size: 1.5rem; margin-bottom: 4px; }
-    .count { color: #888; font-size: 0.9rem; margin-bottom: 24px; }
-    ul { list-style: none; padding: 0; margin: 0; }
-    li { margin-bottom: 8px; }
-    a { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; text-decoration: none; color: inherit; transition: border-color 0.15s; }
-    a:hover { border-color: #6366f1; }
-    .title { font-weight: 500; }
-    .slug { color: #888; font-size: 0.85rem; font-family: ui-monospace, monospace; }
-    .empty { color: #888; padding: 40px; text-align: center; border: 2px dashed #e5e5e5; border-radius: 8px; }
-  </style>
-</head>
-<body>
-  <h1>Published Pages</h1>
-  <div class="count">${pages.length} page${pages.length === 1 ? "" : "s"}</div>
-  ${
-    pages.length
-      ? `<ul>${rows}</ul>`
-      : `<div class="empty">No pages published yet. POST some HTML to get started.</div>`
-  }
-</body>
-</html>`;
+  const list = pages.length
+    ? `<ul>${rows}</ul>`
+    : `<div class="empty">No pages published yet. POST some HTML to get started.</div>`;
+
+  const html = listingTemplate
+    .replaceAll("{{count}}", String(pages.length))
+    .replaceAll("{{pagesLabel}}", pages.length === 1 ? "page" : "pages")
+    .replaceAll("{{list}}", list);
 
   return new Response(html, {
     headers: { "Content-Type": "text/html;charset=UTF-8" },
+  });
+}
+
+// Render the submission form page
+function renderSubmitPage(): Response {
+  return new Response(submitTemplate, {
+    headers: {
+      "Content-Type": "text/html;charset=UTF-8",
+      "Cache-Control": "no-store",
+    },
   });
 }
 
@@ -220,6 +212,11 @@ export default {
           });
         }
         return renderListing(env, url.origin);
+      }
+
+      // Submission form
+      if (key === "submit") {
+        return renderSubmitPage();
       }
 
       const htmlContent = await env.HTML_BIN.get(key);

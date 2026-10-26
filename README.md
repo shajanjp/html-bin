@@ -25,6 +25,8 @@ npx wrangler kv namespace create HTML_BIN
 # copy the id into wrangler.toml
 ```
 
+Static pages live in `pages/` and are bundled as text via the `[[rules]]` entry in `wrangler.toml`. `pages/listing.html` uses `{{count}}`, `{{pagesLabel}}`, and `{{list}}` placeholders that are filled in at request time. Add more `.html` files there and import them in `index.ts`; `types.d.ts` provides the module type.
+
 ### Authentication
 
 `POST /` requires HTTP Basic auth. Credentials are read from the `BASIC_AUTH_USERNAME` and `BASIC_AUTH_PASSWORD` Worker secrets and are never stored in the repo.
@@ -67,6 +69,8 @@ curl http://localhost:8787/hello-world      # the stored HTML
 curl http://localhost:8787/                 # HTML listing of all pages
 curl "http://localhost:8787/?format=json"   # listing as JSON
 ```
+
+Or open `http://localhost:8787/submit` in a browser for a form with an HTML textarea and credential fields. It calls the same `POST /` endpoint via `fetch` and links to the published page.
 
 ## Deploy
 

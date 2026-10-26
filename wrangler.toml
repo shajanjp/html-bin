@@ -2,6 +2,12 @@ name = "html-bin"
 main = "index.ts"
 compatibility_date = "2026-10-01"
 
+# Bundle static HTML pages as text so they can be imported from index.ts
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+fallthrough = true
+
 # Bind the KV namespace to the Worker
 # The binding name "HTML_BIN" is used in the code as env.HTML_BIN
 [[kv_namespaces]]

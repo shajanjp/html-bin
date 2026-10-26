@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Submit HTML</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; background: #fafafa; }
+    h1 { font-size: 1.5rem; margin-bottom: 4px; }
+    .sub { color: #888; font-size: 0.9rem; margin-bottom: 24px; }
+    form { display: flex; flex-direction: column; gap: 16px; }
+    label { font-size: 0.9rem; font-weight: 500; }
+    textarea, input { width: 100%; box-sizing: border-box; font-family: ui-monospace, monospace; font-size: 0.85rem; padding: 12px; border: 1px solid #e5e5e5; border-radius: 8px; background: #fff; }
+    textarea { min-height: 280px; resize: vertical; }
+    input { font-family: inherit; }
+    details { background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px 16px; }
+    summary { cursor: pointer; font-size: 0.9rem; font-weight: 500; }
+    .fields { display: grid; gap: 12px; margin-top: 12px; }
+    button { align-self: flex-start; padding: 10px 18px; border: none; border-radius: 8px; background: #6366f1; color: #fff; font-size: 0.95rem; font-weight: 500; cursor: pointer; }
+    button:hover { background: #4f46e5; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    #status { font-size: 0.9rem; color: #555; min-height: 1.2em; }
+    #status.error { color: #dc2626; }
+    #result a { color: #6366f1; font-size: 0.9rem; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <h1>Submit HTML</h1>
+  <div class="sub">Paste a full HTML document. The &lt;title&gt; tag determines the URL; posting the same title overwrites the page.</div>
+
+  <form id="form">
+    <label for="html">HTML</label>
+    <textarea id="html" name="html" placeholder="&lt;!DOCTYPE html&gt;&#10;&lt;html&gt;&lt;head&gt;&lt;title&gt;My Page&lt;/title&gt;&lt;/head&gt;&lt;body&gt;...&lt;/body&gt;&lt;/html&gt;" required></textarea>
+
+    <details>
+      <summary>Credentials</summary>
+      <div class="fields">
+        <div>
+          <label for="username">Username</label>
+          <input id="username" name="username" autocomplete="username" required />
+        </div>
+        <div>
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required />
+        </div>
+      </div>
+    </details>
+
+    <button type="submit" id="submit">Publish</button>
+    <div id="status" role="status"></div>
+    <div id="result"></div>
+  </form>
+
+  <script>
+    (function () {
+      var form = document.getElementById("form");
+      var status = document.getElementById("status");
+      var result = document.getElementById("result");
+      var button = document.getElementById("submit");
+      var username = document.getElementById("username");
+
+      try {
+        var savedUser = sessionStorage.getItem("htmlBinUser");
+        if (savedUser) username.value = savedUser;
+      } catch (e) {}
+
+      form.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        status.className = "";
+        status.textContent = "";
+        result.textContent = "";
+        button.disabled = true;
+
+        var html = document.getElementById("html").value;
+        var password = document.getElementById("password").value;
+
+        try {
+          sessionStorage.setItem("htmlBinUser", username.value);
+        } catch (e) {}
+
+        try {
+          var response = await fetch("/", {
+            method: "POST",
+            headers: {
+              "Content-Type": "text/html",
+              "Authorization": "Basic " + btoa(username.value + ":" + password)
+            },
+            body: html
+          });
+
+          var data = {};
+          try {
+            data = await response.json();
+          } catch (e) {}
+
+          if (!response.ok) {
+            status.className = "error";
+            status.textContent = data.error || "Request failed with status " + response.status;
+            return;
+          }
+
+          status.textContent = data.isNew ? "Published." : "Updated existing page.";
+          var link = document.createElement("a");
+          link.href = data.url;
+          link.textContent = data.url;
+          link.target = "_blank";
+          link.rel = "noopener";
+          result.appendChild(link);
+        } catch (error) {
+          status.className = "error";
+          status.textContent = "Network error: " + error.message;
+        } finally {
+          button.disabled = false;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
