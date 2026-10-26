@@ -49,6 +49,14 @@ interface PageMetadata {
   publishedAt: string;
 }
 
+// KV metadata is serialized into an HTTP header, so keep the stored title ASCII-only.
+function toAsciiTitle(title: string): string {
+  return title
+    .replace(/[^\x20-\x7E]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // Helper: Extract <title> without a DOM (Workers have no DOM API)
 function extractTitle(html: string): string | null {
   const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
@@ -91,7 +99,7 @@ async function listAllPages(
     for (const k of page.keys) {
       entries.push({
         key: k.name,
-        title: k.metadata?.title ?? k.name,
+        title: k.metadata?.title || k.name,
         publishedAt: k.metadata?.publishedAt ?? "",
       });
     }
@@ -187,7 +195,10 @@ export default {
       // KV put() overwrites if the key exists — this gives us
       // "replace on same title" behavior automatically.
       await env.HTML_BIN.put(key, htmlContent, {
-        metadata: { title: rawTitle, publishedAt: new Date().toISOString() },
+        metadata: {
+          title: toAsciiTitle(rawTitle),
+          publishedAt: new Date().toISOString(),
+        },
       });
 
       const publicUrl = `${url.origin}/${key}`;
