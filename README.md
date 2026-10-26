@@ -25,15 +25,34 @@ npx wrangler kv namespace create HTML_BIN
 # copy the id into wrangler.toml
 ```
 
+### Authentication
+
+`POST /` requires HTTP Basic auth. Credentials are read from the `BASIC_AUTH_USERNAME` and `BASIC_AUTH_PASSWORD` Worker secrets and are never stored in the repo.
+
+```bash
+# Production
+npx wrangler secret put BASIC_AUTH_USERNAME
+npx wrangler secret put BASIC_AUTH_PASSWORD
+
+# Local development (.dev.vars is gitignored)
+cat > .dev.vars <<'EOF'
+BASIC_AUTH_USERNAME=admin
+BASIC_AUTH_PASSWORD=change-me
+EOF
+```
+
 ## Usage
 
-Publish a page. The `<title>` becomes the slug, and posting the same title overwrites the existing page:
+Publish a page. The `<title>` becomes the slug, and posting the same title overwrites the existing page. The request must include Basic auth credentials:
 
 ```bash
 curl -X POST http://localhost:8787/ \
+  -u "admin:change-me" \
   -H "Content-Type: text/html" \
   --data '<html><head><title>Hello World</title></head><body><h1>Hi</h1></body></html>'
 ```
+
+Requests without valid credentials get `401 Unauthorized` with a `WWW-Authenticate: Basic` header. Reading pages (`GET`) remains public.
 
 Response:
 

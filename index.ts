@@ -1,5 +1,33 @@
 export interface Env {
   HTML_BIN: KVNamespace;
+  BASIC_AUTH_USERNAME: string;
+  BASIC_AUTH_PASSWORD: string;
+}
+
+// Helper: Validate the Basic auth header against Worker secrets
+function isAuthorized(request: Request, env: Env): boolean {
+  const header = request.headers.get("Authorization");
+  if (!header || !header.startsWith("Basic ")) return false;
+
+  if (!env.BASIC_AUTH_USERNAME || !env.BASIC_AUTH_PASSWORD) return false;
+
+  let decoded: string;
+  try {
+    decoded = atob(header.slice(6).trim());
+  } catch {
+    return false;
+  }
+
+  const separator = decoded.indexOf(":");
+  if (separator === -1) return false;
+
+  const username = decoded.slice(0, separator);
+  const password = decoded.slice(separator + 1);
+
+  return (
+    username === env.BASIC_AUTH_USERNAME &&
+    password === env.BASIC_AUTH_PASSWORD
+  );
 }
 
 interface PageMetadata {
@@ -118,6 +146,19 @@ export default {
 
     // --- POST: Store HTML (Create or Overwrite) ---
     if (request.method === "POST" && url.pathname === "/") {
+      if (!isAuthorized(request, env)) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          {
+            status: 401,
+            headers: {
+              "Content-Type": "application/json",
+              "WWW-Authenticate": 'Basic realm="html-bin", charset="UTF-8"',
+            },
+          }
+        );
+      }
+
       const htmlContent = await request.text();
 
       if (!htmlContent || htmlContent.trim() === "") {
