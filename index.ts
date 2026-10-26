@@ -33,6 +33,17 @@ function isAuthorized(request: Request, env: Env): boolean {
   );
 }
 
+// Helper: 401 response that triggers the browser's Basic auth prompt
+function unauthorized(): Response {
+  return new Response(JSON.stringify({ error: "Unauthorized" }), {
+    status: 401,
+    headers: {
+      "Content-Type": "application/json",
+      "WWW-Authenticate": 'Basic realm="html-bin", charset="UTF-8"',
+    },
+  });
+}
+
 interface PageMetadata {
   title: string;
   publishedAt: string;
@@ -99,11 +110,14 @@ async function renderListing(env: Env, origin: string): Promise<Response> {
   const rows = pages
     .map(
       (p) => `
-        <li>
+        <li class="row">
           <a href="${origin}/${encodeURIComponent(p.key)}">
             <span class="title">${escapeHtml(p.title)}</span>
             <span class="slug">/${escapeHtml(p.key)}</span>
           </a>
+          <button type="button" class="delete" data-delete data-key="${escapeHtml(
+            p.key
+          )}" data-title="${escapeHtml(p.title)}">Delete</button>
         </li>`
     )
     .join("");
@@ -138,18 +152,7 @@ export default {
 
     // --- POST: Store HTML (Create or Overwrite) ---
     if (request.method === "POST" && url.pathname === "/") {
-      if (!isAuthorized(request, env)) {
-        return new Response(
-          JSON.stringify({ error: "Unauthorized" }),
-          {
-            status: 401,
-            headers: {
-              "Content-Type": "application/json",
-              "WWW-Authenticate": 'Basic realm="html-bin", charset="UTF-8"',
-            },
-          }
-        );
-      }
+      if (!isAuthorized(request, env)) return unauthorized();
 
       const htmlContent = await request.text();
 
@@ -199,12 +202,16 @@ export default {
       );
     }
 
-    // --- GET: Serve HTML by slug, or show listing at root ---
+    // --- GET: Serve HTML by slug, or show the protected listing at root ---
     if (request.method === "GET") {
       const key = url.pathname.slice(1);
 
       // Root path → listing page (HTML or JSON via ?format=json)
       if (key === "") {
+        // The listing exposes every stored page, so keep it behind Basic auth.
+        // The browser caches these credentials and reuses them for DELETE.
+        if (!isAuthorized(request, env)) return unauthorized();
+
         if (url.searchParams.get("format") === "json") {
           const pages = await listAllPages(env);
           return new Response(JSON.stringify({ count: pages.length, pages }), {
@@ -229,6 +236,32 @@ export default {
           },
         });
       }
+    }
+
+    // --- DELETE: Remove a page by slug ---
+    if (request.method === "DELETE") {
+      if (!isAuthorized(request, env)) return unauthorized();
+
+      const key = url.pathname.slice(1);
+      if (!key) {
+        return new Response(
+          JSON.stringify({ error: "A page key is required." }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      const existing = await env.HTML_BIN.get(key);
+      if (existing === null) {
+        return new Response(JSON.stringify({ error: "Not Found" }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      await env.HTML_BIN.delete(key);
+      return new Response(JSON.stringify({ deleted: true, key }), {
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     return new Response("Not Found", { status: 404 });

@@ -29,7 +29,7 @@ Static pages live in `pages/` and are bundled as text via the `[[rules]]` entry 
 
 ### Authentication
 
-`POST /` requires HTTP Basic auth. Credentials are read from the `BASIC_AUTH_USERNAME` and `BASIC_AUTH_PASSWORD` Worker secrets and are never stored in the repo.
+`POST /`, `DELETE /:key`, and the listing at `GET /` require HTTP Basic auth. Credentials are read from the `BASIC_AUTH_USERNAME` and `BASIC_AUTH_PASSWORD` Worker secrets and are never stored in the repo. Published pages and the `/submit` form remain public.
 
 ```bash
 # Production
@@ -54,7 +54,22 @@ curl -X POST http://localhost:8787/ \
   --data '<html><head><title>Hello World</title></head><body><h1>Hi</h1></body></html>'
 ```
 
-Requests without valid credentials get `401 Unauthorized` with a `WWW-Authenticate: Basic` header. Reading pages (`GET`) remains public.
+Requests without valid credentials get `401 Unauthorized` with a `WWW-Authenticate: Basic` header. Reading an individual page (`GET /:key`) remains public.
+
+Delete a page by slug. Requires the same Basic auth credentials:
+
+```bash
+curl -X DELETE http://localhost:8787/hello-world \
+  -u "admin:change-me"
+```
+
+Response:
+
+```json
+{ "deleted": true, "key": "hello-world" }
+```
+
+Deleting a key that does not exist returns `404 Not Found`.
 
 Response:
 
@@ -65,12 +80,14 @@ Response:
 Read pages:
 
 ```bash
-curl http://localhost:8787/hello-world      # the stored HTML
-curl http://localhost:8787/                 # HTML listing of all pages
-curl "http://localhost:8787/?format=json"   # listing as JSON
+curl http://localhost:8787/hello-world      # the stored HTML (public)
+curl -u "admin:change-me" http://localhost:8787/                 # HTML listing of all pages
+curl -u "admin:change-me" "http://localhost:8787/?format=json"  # listing as JSON
 ```
 
 Or open `http://localhost:8787/submit` in a browser for a form with an HTML textarea and credential fields. It calls the same `POST /` endpoint via `fetch` and links to the published page.
+
+The listing page (`GET /`) also has a Delete button next to each page. It reuses the Basic auth credentials the browser captured when the listing loaded, so no separate prompt is needed. Deleting uses `DELETE /:key`.
 
 ## Deploy
 

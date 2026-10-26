@@ -12,16 +12,87 @@
     .count a:hover { text-decoration: underline; }
     ul { list-style: none; padding: 0; margin: 0; }
     li { margin-bottom: 8px; }
+    .row { display: flex; gap: 8px; }
+    .row a { flex: 1; min-width: 0; }
     a { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; text-decoration: none; color: inherit; transition: border-color 0.15s; }
     a:hover { border-color: #6366f1; }
     .title { font-weight: 500; }
     .slug { color: #888; font-size: 0.85rem; font-family: ui-monospace, monospace; }
+    .delete { padding: 0 14px; border: 1px solid #e5e5e5; border-radius: 8px; background: #fff; color: #dc2626; font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+    .delete:hover { border-color: #dc2626; background: #fef2f2; }
+    .delete:disabled { opacity: 0.6; cursor: not-allowed; }
     .empty { color: #888; padding: 40px; text-align: center; border: 2px dashed #e5e5e5; border-radius: 8px; }
+    #status { font-size: 0.9rem; color: #dc2626; min-height: 1.2em; margin-bottom: 12px; }
+    #status:empty { display: none; }
   </style>
 </head>
 <body>
   <h1>Published Pages</h1>
-  <div class="count">{{count}} {{pagesLabel}} · <a href="/submit">Submit new page</a></div>
-  {{list}}
+  <div class="count"><span id="count">{{count}}</span> <span id="pagesLabel">{{pagesLabel}}</span> · <a href="/submit">Submit new page</a></div>
+  <div id="status" role="status"></div>
+  <div id="pages">{{list}}</div>
+
+  <script>
+    (function () {
+      var pages = document.getElementById("pages");
+      var status = document.getElementById("status");
+
+      function updateCount() {
+        var remaining = pages.querySelectorAll("li").length;
+        document.getElementById("count").textContent = String(remaining);
+        document.getElementById("pagesLabel").textContent = remaining === 1 ? "page" : "pages";
+
+        if (remaining === 0) {
+          pages.innerHTML = '<div class="empty">No pages published yet. POST some HTML to get started.</div>';
+        }
+      }
+
+      pages.addEventListener("click", async function (event) {
+        var button = event.target.closest("[data-delete]");
+        if (!button) return;
+
+        event.preventDefault();
+        status.textContent = "";
+
+        var key = button.getAttribute("data-key");
+        var title = button.getAttribute("data-title") || key;
+
+        if (!window.confirm('Delete "' + title + '"?')) return;
+
+        button.disabled = true;
+
+        try {
+          // The listing page is itself behind Basic auth, so the browser
+          // already has the credentials and attaches them to this request.
+          var response = await fetch("/" + encodeURIComponent(key), {
+            method: "DELETE"
+          });
+
+          if (response.status === 401) {
+            status.textContent = "Unauthorized. Reload the page to sign in again.";
+            return;
+          }
+
+          var data = {};
+          try {
+            data = await response.json();
+          } catch (e) {}
+
+          if (!response.ok) {
+            status.textContent = data.error || "Delete failed with status " + response.status;
+            return;
+          }
+
+          var row = button.closest("li");
+          if (row) row.remove();
+          updateCount();
+        } catch (error) {
+          status.textContent = "Network error: " + error.message;
+        } finally {
+          button.disabled = false;
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
