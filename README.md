@@ -29,7 +29,7 @@ Static pages live in `pages/` and are bundled as text via the `[[rules]]` entry 
 
 ### Authentication
 
-`POST /`, `DELETE /:key`, and the listing at `GET /` require HTTP Basic auth. Credentials are read from the `BASIC_AUTH_USERNAME` and `BASIC_AUTH_PASSWORD` Worker secrets and are never stored in the repo. Published pages and the `/submit` form remain public.
+`POST /`, `PATCH /:key`, `DELETE /:key`, and the listing at `GET /` require HTTP Basic auth. Credentials are read from the `BASIC_AUTH_USERNAME` and `BASIC_AUTH_PASSWORD` Worker secrets and are never stored in the repo. Published pages and the `/submit` form remain public.
 
 ```bash
 # Production
@@ -57,6 +57,43 @@ curl -X POST http://localhost:8787/ \
 
 Tags are optional. They can be passed with the `X-Page-Tags` header (comma-separated or a JSON array) or the `tags` query parameter. Omitting tags on an overwrite keeps the existing tags; sending an empty value clears them.
 
+### Update a page
+
+`PATCH /:key` updates an existing page in place. Send a JSON object with any combination of `html`, `title`, and `tags`. Fields you omit are left untouched.
+
+```bash
+curl -X PATCH http://localhost:8787/hello-world \
+  -u "admin:change-me" \
+  -H "Content-Type: application/json" \
+  --data '{"tags":["design","personal"]}'
+```
+
+The title drives the URL key, so renaming a page moves it:
+
+```bash
+curl -X PATCH http://localhost:8787/hello-world \
+  -u "admin:change-me" \
+  -H "Content-Type: application/json" \
+  --data '{"title":"Hello Again","html":"<html><head><title>Hello Again</title></head><body>Updated</body></html>"}'
+```
+
+Response:
+
+```json
+{ "key": "hello-again", "url": "http://localhost:8787/hello-again", "title": "Hello Again", "tags": ["design", "personal"], "updatedAt": "2026-01-01T00:00:00.000Z", "renamed": true }
+```
+
+Rules:
+
+- At least one of `html`, `title`, or `tags` is required.
+- `html` must be a non-empty string and is stored as-is.
+- The effective title is `title`, then the incoming HTML's `<title>`, then the stored title.
+- If the resulting key differs from the requested one, the page is moved and the old key is deleted. Renaming onto an existing key returns `409 Conflict`.
+- `createdAt` is preserved; `updatedAt` and `publishedAt` move to now.
+- `title` on its own renames the page but leaves the stored HTML untouched. Send `html` as well if the page's own `<title>` should change too.
+- Tag limits and metadata size limits are the same as for `POST /`.
+- Unknown keys return `404 Not Found`.
+
 Requests without valid credentials get `401 Unauthorized` with a `WWW-Authenticate: Basic` header. Reading an individual page (`GET /:key`) remains public.
 
 Delete a page by slug. Requires the same Basic auth credentials:
@@ -82,9 +119,7 @@ Response:
 
 ### Tags
 
-Tags are stored in KV metadata with the page title and dates. A page can have up to 20 tags, each up to 32 characters. Tags are trimmed, internal whitespace is collapsed, and duplicates are removed case-insensitively.
-
-Tags are only set when a page is created or updated through `POST /` or the `/submit` form. There is no separate tag endpoint: re-publish the page with new tags to change them.
+Tags are stored in KV metadata with the page title and dates. A page can have up to 20 tags, each up to 32 characters. Tags are trimmed, internal whitespace is collapsed, and duplicates are removed case-insensitively. They can be set when publishing with `POST /` or changed later with `PATCH /:key`.
 
 Tags are also included in `GET /?format=json`. Invalid tags, too many tags, or metadata above KV's 1024 byte limit return `400 Bad Request`.
 
@@ -100,7 +135,7 @@ Or open `http://localhost:8787/submit` in a browser for a form with an HTML text
 
 The listing page (`GET /`) also has a Delete button next to each page. It reuses the Basic auth credentials the browser captured when the listing loaded, so no separate prompt is needed. Deleting uses `DELETE /:key`.
 
-The listing also includes a client-side search box that filters by title and URL/slug without any network requests, opens pages in a new tab, shows the last updated date when KV metadata has one (`createdAt`/`updatedAt`, falling back to the legacy `publishedAt` field), and has a copy button. Copy places the page's absolute URL on the clipboard (with a legacy fallback for non-secure contexts). Tags are shown as chips under each page's slug. The first publish stores `createdAt`; later overwrites keep it and only move `updatedAt`.
+The listing also includes a client-side search box that filters by title, URL/slug, and tags without any network requests, opens pages in a new tab, shows the last updated date when KV metadata has one (`createdAt`/`updatedAt`, falling back to the legacy `publishedAt` field), and has copy and tag buttons. Copy places the page's absolute URL on the clipboard (with a legacy fallback for non-secure contexts). The tag button opens a dialog where tags can be added or removed, saved through `PATCH /:key`. The first publish stores `createdAt`; later overwrites keep it and only move `updatedAt`.
 
 ## Deploy
 

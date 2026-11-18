@@ -244,7 +244,9 @@ async function renderListing(env: Env, origin: string): Promise<Response> {
       return `
         <li class="row" data-row data-title="${escapeHtml(
           p.title
-        )}" data-slug="${escapeHtml(p.key)}">
+        )}" data-slug="${escapeHtml(p.key)}" data-tags="${escapeHtml(
+          JSON.stringify(tags)
+        )}">
           <a class="row-link" href="${pageUrl}" target="_blank" rel="noopener noreferrer">
             <span class="meta">
               <span class="title">${escapeHtml(p.title)}</span>
@@ -259,6 +261,11 @@ async function renderListing(env: Env, origin: string): Promise<Response> {
           <div class="row-actions" role="group" aria-label="Actions for ${escapeHtml(
             p.title
           )}">
+            <button type="button" class="action action-tag" data-edit-tags aria-label="Edit tags for ${escapeHtml(
+              p.title
+            )}" title="Edit tags">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41 12 22l-9-9V4h9l8.59 8.59a2 2 0 0 1 0 2.82Z"/><circle cx="7.5" cy="7.5" r="1"/></svg>
+            </button>
             <button type="button" class="action action-copy" data-copy data-url="${escapeHtml(
               pageUrl
             )}" aria-label="Copy link to ${escapeHtml(p.title)}" title="Copy link">
@@ -382,6 +389,117 @@ export default {
           isNew,
         }),
         { status: isNew ? 201 : 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // --- PATCH: Update an existing page's HTML, title, or tags ---
+    if (request.method === "PATCH") {
+      if (!isAuthorized(request, env)) return unauthorized();
+
+      const key = url.pathname.slice(1);
+      if (!key) return badRequest("A page key is required.");
+
+      let body: unknown;
+      try {
+        body = await request.json();
+      } catch {
+        return badRequest("Request body must be valid JSON.");
+      }
+
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return badRequest("Request body must be a JSON object.");
+      }
+
+      const patch = body as { html?: unknown; title?: unknown; tags?: unknown };
+      const hasHtml = "html" in patch;
+      const hasTitle = "title" in patch;
+      const hasTags = "tags" in patch;
+
+      if (!hasHtml && !hasTitle && !hasTags) {
+        return badRequest('Provide at least one of "html", "title", or "tags".');
+      }
+
+      if (hasHtml && (typeof patch.html !== "string" || patch.html.trim() === "")) {
+        return badRequest('"html" must be a non-empty string.');
+      }
+
+      if (hasTitle && (typeof patch.title !== "string" || patch.title.trim() === "")) {
+        return badRequest('"title" must be a non-empty string.');
+      }
+
+      const parsedTags = hasTags ? normalizeTags(patch.tags) : null;
+      if (parsedTags && "error" in parsedTags) return badRequest(parsedTags.error);
+
+      const existing = await env.HTML_BIN.getWithMetadata<PageMetadata>(key);
+      if (existing.value === null) {
+        return new Response(JSON.stringify({ error: "Not Found" }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      const html = hasHtml ? (patch.html as string) : existing.value;
+
+      // Title precedence: explicit title, then the incoming HTML's <title>,
+      // then whatever title is already stored.
+      const rawTitle =
+        (hasTitle ? (patch.title as string) : null) ??
+        (hasHtml ? extractTitle(html) : null) ??
+        existing.metadata?.title ??
+        extractTitle(html) ??
+        key;
+
+      const title = toAsciiTitle(rawTitle);
+      const newKey = slugifyTitle(title);
+      if (!newKey) {
+        return badRequest("Title could not be converted to a valid URL key.");
+      }
+
+      // A title change renames the page, so the new key must be free.
+      if (newKey !== key) {
+        const collision = await env.HTML_BIN.get(newKey);
+        if (collision !== null) {
+          return new Response(
+            JSON.stringify({
+              error: `A page with the key "${newKey}" already exists.`,
+            }),
+            { status: 409, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      const now = new Date().toISOString();
+      const createdAt =
+        existing.metadata?.createdAt || existing.metadata?.publishedAt || now;
+      const existingTags = Array.isArray(existing.metadata?.tags)
+        ? existing.metadata.tags!
+        : [];
+
+      const metadata: PageMetadata = {
+        title,
+        createdAt,
+        updatedAt: now,
+        publishedAt: now,
+        tags: parsedTags === null ? existingTags : parsedTags.tags,
+      };
+
+      if (exceedsMetadataLimit(metadata)) {
+        return badRequest("Page metadata exceeds the 1024 byte KV limit.");
+      }
+
+      await env.HTML_BIN.put(newKey, html, { metadata });
+      if (newKey !== key) await env.HTML_BIN.delete(key);
+
+      return new Response(
+        JSON.stringify({
+          key: newKey,
+          url: `${url.origin}/${newKey}`,
+          title,
+          tags: metadata.tags,
+          updatedAt: now,
+          renamed: newKey !== key,
+        }),
+        { headers: { "Content-Type": "application/json" } }
       );
     }
 

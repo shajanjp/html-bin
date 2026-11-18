@@ -70,7 +70,7 @@
     .action:hover { background: rgba(0, 0, 0, 0.05); color: var(--text); }
     .action:active { background: rgba(0, 0, 0, 0.09); }
     .action:disabled { opacity: 0.4; cursor: not-allowed; }
-    .action-copy:hover { color: var(--accent); background: rgba(0, 113, 227, 0.08); }
+    .action-tag:hover, .action-copy:hover { color: var(--accent); background: rgba(0, 113, 227, 0.08); }
     .action-copy .icon-check { display: none; }
     .action-copy.copied { color: #248a3d; background: rgba(52, 199, 89, 0.12); }
     .action-copy.copied .icon-copy { display: none; }
@@ -94,6 +94,26 @@
     #status { color: var(--danger); font-size: 14px; margin: 0 0 12px; text-align: center; }
     #status:empty { display: none; }
 
+    .dialog { width: min(420px, calc(100vw - 32px)); padding: 0; border: none; border-radius: 20px; background: var(--surface); color: var(--text); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.25); }
+    .dialog::backdrop { background: rgba(0, 0, 0, 0.28); backdrop-filter: blur(4px); }
+    .dialog form { display: flex; flex-direction: column; gap: 12px; padding: 24px; }
+    .dialog h2 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
+    .dialog-page { margin: 0; color: var(--muted); font-size: 13px; }
+    .dialog label { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+    .dialog input { height: 44px; padding: 0 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--chip); color: var(--text); font-family: inherit; font-size: 15px; letter-spacing: -0.01em; transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease; }
+    .dialog input:focus { outline: none; background: var(--surface); border-color: var(--accent); box-shadow: 0 0 0 4px var(--focus); }
+    .dialog-hint { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
+    .dialog-error { margin: 0; color: var(--danger); font-size: 13px; }
+    .dialog-error:empty { display: none; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+    .dialog-actions button { height: 40px; padding: 0 18px; border-radius: 980px; font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
+    .dialog-cancel { border: 1px solid var(--hairline); background: var(--chip); color: var(--text); }
+    .dialog-cancel:hover { background: #ebebef; }
+    .dialog-save { border: none; background: var(--accent); color: #fff; }
+    .dialog-save:hover { background: var(--accent-hover); }
+    .dialog-save:disabled { opacity: 0.5; cursor: not-allowed; }
+    .dialog-actions button:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--focus); }
+
     @media (max-width: 640px) {
       body { padding: 44px 18px 72px; }
       .hero { margin-bottom: 28px; }
@@ -106,6 +126,7 @@
       .action { width: 40px; height: 40px; }
       .action-delete { margin-left: 6px; }
       .action-delete::before { left: -6px; }
+      .dialog form { padding: 20px; }
     }
 
     /* Very narrow screens: drop the date badge so the title keeps its room. */
@@ -125,7 +146,7 @@
   <div class="toolbar">
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input id="search" type="search" placeholder="Search by title or URL" autocomplete="off" spellcheck="false" aria-label="Search pages by title or URL" />
+      <input id="search" type="search" placeholder="Search by title, URL, or tag" autocomplete="off" spellcheck="false" aria-label="Search pages by title, URL, or tag" />
     </div>
     <a class="button" href="/submit">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
@@ -137,6 +158,21 @@
   <div id="pages">{{list}}</div>
   <div id="noResults" class="empty" hidden>No pages match your search.</div>
 
+  <dialog id="tagDialog" class="dialog" aria-labelledby="tagDialogTitle">
+    <form id="tagForm">
+      <h2 id="tagDialogTitle">Edit tags</h2>
+      <p class="dialog-page" id="tagPage"></p>
+      <label for="tagInput">Tags</label>
+      <input id="tagInput" type="text" placeholder="design, work, demo" autocomplete="off" spellcheck="false" />
+      <p class="dialog-hint">Separate tags with commas. Leave empty to remove all tags.</p>
+      <p class="dialog-error" id="tagError" role="alert"></p>
+      <div class="dialog-actions">
+        <button type="button" class="dialog-cancel" id="tagCancel">Cancel</button>
+        <button type="submit" class="dialog-save" id="tagSave">Save</button>
+      </div>
+    </form>
+  </dialog>
+
   <script>
     (function () {
       var pages = document.getElementById("pages");
@@ -147,6 +183,14 @@
       var status = document.getElementById("status");
       var count = document.getElementById("count");
       var pagesLabel = document.getElementById("pagesLabel");
+      var tagDialog = document.getElementById("tagDialog");
+      var tagForm = document.getElementById("tagForm");
+      var tagPage = document.getElementById("tagPage");
+      var tagInput = document.getElementById("tagInput");
+      var tagError = document.getElementById("tagError");
+      var tagCancel = document.getElementById("tagCancel");
+      var tagSave = document.getElementById("tagSave");
+      var activeTagRow = null;
 
       function updateCount() {
         var rows = list.querySelectorAll("[data-row]");
@@ -171,16 +215,29 @@
         noResults.hidden = !(total > 0 && visible === 0);
       }
 
+      // Cached per row; invalidated when tags change so search stays accurate.
+      function searchText(row) {
+        if (row.searchText) return row.searchText;
+
+        var tags = tagsFromRow(row);
+        row.searchText = (
+          row.getAttribute("data-title") +
+          " " +
+          row.getAttribute("data-slug") +
+          " " +
+          tags.join(" ")
+        ).toLowerCase();
+
+        return row.searchText;
+      }
+
       function applyFilter() {
         var query = search.value.trim().toLowerCase();
         var rows = list.querySelectorAll("[data-row]");
 
         for (var i = 0; i < rows.length; i++) {
           var row = rows[i];
-          var haystack = (
-            row.getAttribute("data-title") + " " + row.getAttribute("data-slug")
-          ).toLowerCase();
-          row.hidden = query !== "" && haystack.indexOf(query) === -1;
+          row.hidden = query !== "" && searchText(row).indexOf(query) === -1;
         }
 
         updateCount();
@@ -256,9 +313,149 @@
         }
       }
 
+      function tagsFromRow(row) {
+        try {
+          var parsed = JSON.parse(row.getAttribute("data-tags") || "[]");
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+          return [];
+        }
+      }
+
+      function renderTags(row, tags) {
+        row.setAttribute("data-tags", JSON.stringify(tags));
+        row.searchText = null;
+        var container = row.querySelector("[data-tags-container]");
+        if (!container) return;
+
+        container.textContent = "";
+        for (var i = 0; i < tags.length; i++) {
+          var chip = document.createElement("span");
+          chip.className = "tag";
+          chip.textContent = tags[i];
+          container.appendChild(chip);
+        }
+
+        container.hidden = tags.length === 0;
+      }
+
+      function renderUpdatedAt(row, iso) {
+        if (!iso) return;
+
+        var date = new Date(iso);
+        if (isNaN(date.getTime())) return;
+
+        var time = row.querySelector("time[data-date]");
+        if (!time) return;
+
+        time.setAttribute("datetime", iso);
+        time.textContent = date.toLocaleDateString(undefined, {
+          year: "numeric",
+          month: "short",
+          day: "numeric"
+        });
+      }
+
+      function normalizeTagInput(value) {
+        var parts = value.split(",");
+        var tags = [];
+        var seen = Object.create(null);
+
+        for (var i = 0; i < parts.length; i++) {
+          var tag = parts[i].trim();
+          if (!tag) continue;
+
+          var key = tag.toLowerCase();
+          if (seen[key]) continue;
+
+          seen[key] = true;
+          tags.push(tag);
+        }
+
+        return tags;
+      }
+
+      function openTagEditor(button) {
+        var row = button.closest("[data-row]");
+        if (!row || tagDialog.open) return;
+
+        activeTagRow = row;
+        tagPage.textContent =
+          row.getAttribute("data-title") || row.getAttribute("data-slug");
+        tagInput.value = tagsFromRow(row).join(", ");
+        tagError.textContent = "";
+
+        tagDialog.showModal();
+        tagInput.focus();
+        tagInput.select();
+      }
+
+      tagForm.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        if (!activeTagRow) return;
+
+        var key = activeTagRow.getAttribute("data-slug");
+        var tags = normalizeTagInput(tagInput.value);
+
+        tagError.textContent = "";
+        tagSave.disabled = true;
+
+        try {
+          var response = await fetch("/" + encodeURIComponent(key), {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tags: tags })
+          });
+
+          if (response.status === 401) {
+            tagError.textContent = "Unauthorized. Reload the page to sign in again.";
+            return;
+          }
+
+          var data = {};
+          try {
+            data = await response.json();
+          } catch (e) {}
+
+          if (!response.ok) {
+            tagError.textContent = data.error || "Update failed with status " + response.status;
+            return;
+          }
+
+          renderTags(activeTagRow, Array.isArray(data.tags) ? data.tags : tags);
+          renderUpdatedAt(activeTagRow, data.updatedAt);
+          tagDialog.close();
+          applyFilter();
+        } catch (error) {
+          tagError.textContent = "Network error: " + error.message;
+        } finally {
+          tagSave.disabled = false;
+        }
+      });
+
+      tagCancel.addEventListener("click", function () {
+        tagDialog.close();
+      });
+
+      tagDialog.addEventListener("close", function () {
+        activeTagRow = null;
+      });
+
+      // Clicking the backdrop closes the dialog.
+      tagDialog.addEventListener("click", function (event) {
+        if (event.target === tagDialog) tagDialog.close();
+      });
+
       search.addEventListener("input", applyFilter);
 
       pages.addEventListener("click", async function (event) {
+        var tagButton = event.target.closest("[data-edit-tags]");
+        if (tagButton) {
+          event.preventDefault();
+          openTagEditor(tagButton);
+          return;
+        }
+
         var copyButton = event.target.closest("[data-copy]");
         if (copyButton) {
           event.preventDefault();
