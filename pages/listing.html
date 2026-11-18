@@ -49,26 +49,46 @@
 
     ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
     [hidden] { display: none !important; }
-    .row { display: flex; gap: 10px; }
-    .row a { flex: 1; min-width: 0; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 20px; background: var(--surface); border: 1px solid var(--hairline); border-radius: 16px; box-shadow: var(--shadow); text-decoration: none; color: inherit; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
-    .row a:hover { border-color: rgba(0, 0, 0, 0.12); box-shadow: var(--shadow-hover); }
+    /* Each row is one card. The page link fills the left side and the actions
+       live inside the same surface, so nothing floats loose beside it. */
+    .row { position: relative; display: flex; align-items: stretch; background: var(--surface); border: 1px solid var(--hairline); border-radius: 16px; box-shadow: var(--shadow); transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+    .row:hover { border-color: rgba(0, 0, 0, 0.12); box-shadow: var(--shadow-hover); }
+    .row-link { flex: 1; min-width: 0; display: flex; align-items: center; gap: 16px; padding: 16px 10px 16px 20px; border-radius: 15px; text-decoration: none; color: inherit; }
+    .row-link:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
     .meta { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
     .title { font-size: 17px; font-weight: 600; letter-spacing: -0.022em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .slug { font-family: "SF Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .row-end { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
     .date { flex-shrink: 0; padding: 5px 10px; border-radius: 8px; background: var(--chip); color: var(--secondary); font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .chevron { flex-shrink: 0; width: 16px; height: 16px; color: #c7c7cc; }
+    .chevron { flex-shrink: 0; width: 16px; height: 16px; color: #c7c7cc; transition: color 0.2s ease, transform 0.2s ease; }
+    .row:hover .chevron { color: var(--muted); transform: translateX(2px); }
 
-    .copy, .delete { display: flex; align-items: center; justify-content: center; width: 52px; padding: 0; border: 1px solid var(--hairline); border-radius: 16px; background: var(--surface); color: var(--muted); box-shadow: var(--shadow); cursor: pointer; transition: color 0.15s, border-color 0.15s, background 0.15s; }
-    .copy svg, .delete svg { display: block; }
-    .copy .icon-check { display: none; }
-    .copy:hover { color: var(--accent); border-color: rgba(0, 113, 227, 0.25); background: rgba(0, 113, 227, 0.05); }
-    .copy.copied { color: #34c759; border-color: rgba(52, 199, 89, 0.3); background: rgba(52, 199, 89, 0.08); }
-    .copy.copied .icon-copy { display: none; }
-    .copy.copied .icon-check { display: block; }
-    .delete:hover { color: var(--danger); border-color: rgba(222, 7, 28, 0.25); background: rgba(222, 7, 28, 0.05); }
-    .copy:disabled, .delete:disabled { opacity: 0.5; cursor: not-allowed; }
+    /* Quiet icon actions, grouped on the right of the card. */
+    .row-actions { display: flex; align-items: center; gap: 2px; padding-right: 10px; }
+    .action { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--muted); cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
+    .action svg { display: block; }
+    .action:hover { background: rgba(0, 0, 0, 0.05); color: var(--text); }
+    .action:active { background: rgba(0, 0, 0, 0.09); }
+    .action:disabled { opacity: 0.4; cursor: not-allowed; }
+    .action-copy:hover { color: var(--accent); background: rgba(0, 113, 227, 0.08); }
+    .action-copy .icon-check { display: none; }
+    .action-copy.copied { color: #248a3d; background: rgba(52, 199, 89, 0.12); }
+    .action-copy.copied .icon-copy { display: none; }
+    .action-copy.copied .icon-check { display: block; }
+    .action-delete { position: relative; margin-left: 8px; }
+    .action-delete::before { content: ""; position: absolute; left: -7px; top: 50%; transform: translateY(-50%); width: 1px; height: 20px; background: var(--border); }
+    .action-delete:hover { color: var(--danger); background: rgba(222, 7, 28, 0.08); }
 
-    .button:focus-visible, .row a:focus-visible, .copy:focus-visible, .delete:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--focus); }
+    /* Faint at rest so the row reads as one card; full strength on hover/focus. */
+    @media (hover: hover) and (pointer: fine) {
+      .row-actions { opacity: 0.4; transition: opacity 0.18s ease; }
+      .row:hover .row-actions, .row:focus-within .row-actions { opacity: 1; }
+    }
+
+    .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+    .tag { padding: 2px 8px; border-radius: 6px; background: var(--chip); color: var(--secondary); font-size: 11px; font-weight: 500; letter-spacing: 0; }
+
+    .button:focus-visible, .action:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); }
 
     .empty { padding: 64px 24px; text-align: center; color: var(--muted); background: var(--surface); border: 1px solid var(--hairline); border-radius: 18px; font-size: 15px; }
     #status { color: var(--danger); font-size: 14px; margin: 0 0 12px; text-align: center; }
@@ -79,8 +99,19 @@
       .hero { margin-bottom: 28px; }
       .toolbar { flex-direction: column; align-items: stretch; }
       .button { width: 100%; }
-      .row a { padding: 16px; }
-      .copy, .delete { width: 48px; }
+      .row-link { padding: 14px 6px 14px 16px; gap: 12px; }
+      .row-end { gap: 8px; }
+      .chevron { display: none; }
+      .row-actions { padding-right: 6px; }
+      .action { width: 40px; height: 40px; }
+      .action-delete { margin-left: 6px; }
+      .action-delete::before { left: -6px; }
+    }
+
+    /* Very narrow screens: drop the date badge so the title keeps its room. */
+    @media (max-width: 480px) {
+      .date { display: none; }
+      .row-link { padding-left: 14px; gap: 10px; }
     }
   </style>
 </head>

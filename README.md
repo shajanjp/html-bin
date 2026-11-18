@@ -51,8 +51,11 @@ Publish a page. The `<title>` becomes the slug, and posting the same title overw
 curl -X POST http://localhost:8787/ \
   -u "admin:change-me" \
   -H "Content-Type: text/html" \
+  -H "X-Page-Tags: design,work" \
   --data '<html><head><title>Hello World</title></head><body><h1>Hi</h1></body></html>'
 ```
+
+Tags are optional. They can be passed with the `X-Page-Tags` header (comma-separated or a JSON array) or the `tags` query parameter. Omitting tags on an overwrite keeps the existing tags; sending an empty value clears them.
 
 Requests without valid credentials get `401 Unauthorized` with a `WWW-Authenticate: Basic` header. Reading an individual page (`GET /:key`) remains public.
 
@@ -74,8 +77,16 @@ Deleting a key that does not exist returns `404 Not Found`.
 Response:
 
 ```json
-{ "url": "http://localhost:8787/hello-world", "key": "hello-world", "title": "Hello World", "isNew": true }
+{ "url": "http://localhost:8787/hello-world", "key": "hello-world", "title": "Hello World", "tags": ["design", "work"], "isNew": true }
 ```
+
+### Tags
+
+Tags are stored in KV metadata with the page title and dates. A page can have up to 20 tags, each up to 32 characters. Tags are trimmed, internal whitespace is collapsed, and duplicates are removed case-insensitively.
+
+Tags are only set when a page is created or updated through `POST /` or the `/submit` form. There is no separate tag endpoint: re-publish the page with new tags to change them.
+
+Tags are also included in `GET /?format=json`. Invalid tags, too many tags, or metadata above KV's 1024 byte limit return `400 Bad Request`.
 
 Read pages:
 
@@ -89,7 +100,7 @@ Or open `http://localhost:8787/submit` in a browser for a form with an HTML text
 
 The listing page (`GET /`) also has a Delete button next to each page. It reuses the Basic auth credentials the browser captured when the listing loaded, so no separate prompt is needed. Deleting uses `DELETE /:key`.
 
-The listing also includes a client-side search box that filters by title and URL/slug without any network requests, opens pages in a new tab, shows the last updated date when KV metadata has one (`createdAt`/`updatedAt`, falling back to the legacy `publishedAt` field), and has a copy button that copies the page's absolute URL to the clipboard (with a legacy fallback for non-secure contexts). The first publish stores `createdAt`; later overwrites keep it and only move `updatedAt`.
+The listing also includes a client-side search box that filters by title and URL/slug without any network requests, opens pages in a new tab, shows the last updated date when KV metadata has one (`createdAt`/`updatedAt`, falling back to the legacy `publishedAt` field), and has a copy button. Copy places the page's absolute URL on the clipboard (with a legacy fallback for non-secure contexts). Tags are shown as chips under each page's slug. The first publish stores `createdAt`; later overwrites keep it and only move `updatedAt`.
 
 ## Deploy
 

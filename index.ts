@@ -50,6 +50,7 @@ interface PageMetadata {
   publishedAt?: string;
   createdAt?: string;
   updatedAt?: string;
+  tags?: string[];
 }
 
 interface PageEntry {
@@ -58,6 +59,84 @@ interface PageEntry {
   publishedAt: string;
   createdAt: string;
   updatedAt: string;
+  tags: string[];
+}
+
+const MAX_TAGS = 20;
+const MAX_TAG_LENGTH = 32;
+// Cloudflare KV serializes metadata into a 1024 byte field.
+const MAX_METADATA_BYTES = 1024;
+
+// Tags are trimmed and de-duplicated case-insensitively while keeping the
+// casing the user typed for display.
+function normalizeTags(value: unknown): { tags: string[] } | { error: string } {
+  const raw = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(",")
+      : null;
+
+  if (!raw) return { error: "Tags must be an array of strings." };
+
+  const tags: string[] = [];
+  const seen = new Set<string>();
+
+  for (const item of raw) {
+    if (typeof item !== "string") {
+      return { error: "Each tag must be a string." };
+    }
+
+    const tag = item.replace(/\s+/g, " ").trim();
+    if (!tag) continue;
+
+    if (tag.length > MAX_TAG_LENGTH) {
+      return { error: `Tags must be ${MAX_TAG_LENGTH} characters or fewer.` };
+    }
+
+    const normalized = tag.toLowerCase();
+    if (seen.has(normalized)) continue;
+
+    seen.add(normalized);
+    tags.push(tag);
+  }
+
+  if (tags.length > MAX_TAGS) {
+    return { error: `A page can have at most ${MAX_TAGS} tags.` };
+  }
+
+  return { tags };
+}
+
+// Returns null when the header is absent so updates can keep existing tags.
+function parseTagsHeader(
+  header: string | null
+): { tags: string[] } | { error: string } | null {
+  if (header === null) return null;
+
+  const value = header.trim();
+  if (value === "") return { tags: [] };
+
+  if (value.startsWith("[")) {
+    try {
+      return normalizeTags(JSON.parse(value));
+    } catch {
+      return { error: "X-Page-Tags must be a JSON array or a comma-separated list." };
+    }
+  }
+
+  return normalizeTags(value);
+}
+
+function exceedsMetadataLimit(metadata: PageMetadata): boolean {
+  const serialized = JSON.stringify(metadata);
+  return new TextEncoder().encode(serialized).length > MAX_METADATA_BYTES;
+}
+
+function badRequest(message: string): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status: 400,
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
 // KV metadata is serialized into an HTTP header, so keep the stored title ASCII-only.
@@ -114,6 +193,7 @@ async function listAllPages(env: Env): Promise<PageEntry[]> {
         createdAt: k.metadata?.createdAt ?? "",
         // Legacy entries only have publishedAt, which already tracks the last write.
         updatedAt: k.metadata?.updatedAt ?? publishedAt,
+        tags: Array.isArray(k.metadata?.tags) ? k.metadata.tags : [],
       });
     }
     if (page.list_complete) break;
@@ -156,32 +236,43 @@ async function renderListing(env: Env, origin: string): Promise<Response> {
         : "";
 
       const pageUrl = `${origin}/${encodeURIComponent(p.key)}`;
+      const tags = Array.isArray(p.tags) ? p.tags : [];
+      const tagsHtml = tags
+        .map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`)
+        .join("");
 
       return `
         <li class="row" data-row data-title="${escapeHtml(
           p.title
         )}" data-slug="${escapeHtml(p.key)}">
-          <a href="${pageUrl}" target="_blank" rel="noopener noreferrer">
+          <a class="row-link" href="${pageUrl}" target="_blank" rel="noopener noreferrer">
             <span class="meta">
               <span class="title">${escapeHtml(p.title)}</span>
               <span class="slug">/${escapeHtml(p.key)}</span>
+              <span class="tags" data-tags-container${tags.length ? "" : " hidden"}>${tagsHtml}</span>
             </span>
-            ${date}
-            <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+            <span class="row-end">
+              ${date}
+              <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+            </span>
           </a>
-          <button type="button" class="copy" data-copy data-url="${escapeHtml(
-            pageUrl
-          )}" aria-label="Copy link to ${escapeHtml(p.title)}" title="Copy link">
-            <svg class="icon-copy" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-            <svg class="icon-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-          </button>
-          <button type="button" class="delete" data-delete data-key="${escapeHtml(
-            p.key
-          )}" data-title="${escapeHtml(p.title)}" aria-label="Delete ${escapeHtml(
+          <div class="row-actions" role="group" aria-label="Actions for ${escapeHtml(
             p.title
-          )}" title="Delete">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-          </button>
+          )}">
+            <button type="button" class="action action-copy" data-copy data-url="${escapeHtml(
+              pageUrl
+            )}" aria-label="Copy link to ${escapeHtml(p.title)}" title="Copy link">
+              <svg class="icon-copy" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              <svg class="icon-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+            </button>
+            <button type="button" class="action action-delete" data-delete data-key="${escapeHtml(
+              p.key
+            )}" data-title="${escapeHtml(p.title)}" aria-label="Delete ${escapeHtml(
+              p.title
+            )}" title="Delete">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+            </button>
+          </div>
         </li>`;
     })
     .join("");
@@ -245,24 +336,41 @@ export default {
         );
       }
 
+      const tagHeader = request.headers.get("X-Page-Tags");
+      const parsedTags = parseTagsHeader(
+        tagHeader !== null ? tagHeader : url.searchParams.get("tags")
+      );
+      if (parsedTags && "error" in parsedTags) {
+        return badRequest(parsedTags.error);
+      }
+
       // Check if this is a new page or an overwrite, and preserve the original
-      // creation time when a page is replaced.
+      // creation time and tags when a page is replaced without new tags.
       const existing = await env.HTML_BIN.getWithMetadata<PageMetadata>(key);
       const isNew = existing.value === null;
       const now = new Date().toISOString();
       const createdAt =
         existing.metadata?.createdAt || existing.metadata?.publishedAt || now;
+      const existingTags = Array.isArray(existing.metadata?.tags)
+        ? existing.metadata.tags
+        : [];
+      const tags = parsedTags === null ? existingTags : parsedTags.tags;
+
+      const metadata: PageMetadata = {
+        title: toAsciiTitle(rawTitle),
+        createdAt,
+        updatedAt: now,
+        publishedAt: now,
+        tags,
+      };
+
+      if (exceedsMetadataLimit(metadata)) {
+        return badRequest("Page metadata exceeds the 1024 byte KV limit.");
+      }
 
       // KV put() overwrites if the key exists — this gives us
       // "replace on same title" behavior automatically.
-      await env.HTML_BIN.put(key, htmlContent, {
-        metadata: {
-          title: toAsciiTitle(rawTitle),
-          createdAt,
-          updatedAt: now,
-          publishedAt: now,
-        },
-      });
+      await env.HTML_BIN.put(key, htmlContent, { metadata });
 
       const publicUrl = `${url.origin}/${key}`;
       return new Response(
@@ -270,6 +378,7 @@ export default {
           url: publicUrl,
           key,
           title: rawTitle,
+          tags,
           isNew,
         }),
         { status: isNew ? 201 : 200, headers: { "Content-Type": "application/json" } }
