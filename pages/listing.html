@@ -11,13 +11,19 @@
     .count a { display: inline; padding: 0; border: none; background: none; color: #6366f1; text-decoration: none; }
     .count a:hover { text-decoration: underline; }
     ul { list-style: none; padding: 0; margin: 0; }
+    [hidden] { display: none !important; }
     li { margin-bottom: 8px; }
     .row { display: flex; gap: 8px; }
     .row a { flex: 1; min-width: 0; }
-    a { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; text-decoration: none; color: inherit; transition: border-color 0.15s; }
+    a { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; text-decoration: none; color: inherit; transition: border-color 0.15s; }
     a:hover { border-color: #6366f1; }
+    .meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
     .title { font-weight: 500; }
     .slug { color: #888; font-size: 0.85rem; font-family: ui-monospace, monospace; }
+    .date { flex-shrink: 0; color: #888; font-size: 0.8rem; white-space: nowrap; }
+    .filters { margin-bottom: 16px; }
+    .filters input { width: 100%; box-sizing: border-box; padding: 10px 12px; font-family: inherit; font-size: 0.9rem; color: inherit; background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; }
+    .filters input:focus { outline: none; border-color: #6366f1; }
     .delete { display: flex; align-items: center; justify-content: center; width: 44px; padding: 0; border: 1px solid #e5e5e5; border-radius: 8px; background: #fff; color: #dc2626; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
     .delete svg { display: block; }
     .delete:hover { border-color: #dc2626; background: #fef2f2; }
@@ -30,23 +36,77 @@
 <body>
   <h1>Published Pages</h1>
   <div class="count"><span id="count">{{count}}</span> <span id="pagesLabel">{{pagesLabel}}</span> · <a href="/submit">Submit new page</a></div>
+  <div class="filters">
+    <input id="search" type="search" placeholder="Search by title or URL" autocomplete="off" spellcheck="false" aria-label="Search pages by title or URL" />
+  </div>
   <div id="status" role="status"></div>
   <div id="pages">{{list}}</div>
+  <div id="noResults" class="empty" hidden>No pages match your search.</div>
 
   <script>
     (function () {
       var pages = document.getElementById("pages");
+      var list = document.getElementById("list");
+      var empty = document.getElementById("empty");
+      var noResults = document.getElementById("noResults");
+      var search = document.getElementById("search");
       var status = document.getElementById("status");
+      var count = document.getElementById("count");
+      var pagesLabel = document.getElementById("pagesLabel");
 
       function updateCount() {
-        var remaining = pages.querySelectorAll("li").length;
-        document.getElementById("count").textContent = String(remaining);
-        document.getElementById("pagesLabel").textContent = remaining === 1 ? "page" : "pages";
+        var rows = list.querySelectorAll("[data-row]");
+        var total = rows.length;
+        var visible = 0;
 
-        if (remaining === 0) {
-          pages.innerHTML = '<div class="empty">No pages published yet. POST some HTML to get started.</div>';
+        for (var i = 0; i < rows.length; i++) {
+          if (!rows[i].hidden) visible++;
+        }
+
+        var query = search.value.trim();
+        count.textContent = query && visible !== total
+          ? visible + " of " + total
+          : String(total);
+        pagesLabel.textContent =
+          query && visible !== total
+            ? "pages"
+            : total === 1 ? "page" : "pages";
+
+        list.hidden = total === 0;
+        empty.hidden = total !== 0;
+        noResults.hidden = !(total > 0 && visible === 0);
+      }
+
+      function applyFilter() {
+        var query = search.value.trim().toLowerCase();
+        var rows = list.querySelectorAll("[data-row]");
+
+        for (var i = 0; i < rows.length; i++) {
+          var row = rows[i];
+          var haystack = (
+            row.getAttribute("data-title") + " " + row.getAttribute("data-slug")
+          ).toLowerCase();
+          row.hidden = query !== "" && haystack.indexOf(query) === -1;
+        }
+
+        updateCount();
+      }
+
+      // Render dates in the visitor's timezone instead of the server's UTC fallback.
+      function localizeDates() {
+        var dates = pages.querySelectorAll("time[data-date]");
+        for (var i = 0; i < dates.length; i++) {
+          var date = new Date(dates[i].getAttribute("datetime"));
+          if (isNaN(date.getTime())) continue;
+          dates[i].textContent = date.toLocaleDateString(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "numeric"
+          });
         }
       }
+
+      search.addEventListener("input", applyFilter);
 
       pages.addEventListener("click", async function (event) {
         var button = event.target.closest("[data-delete]");
@@ -93,6 +153,9 @@
           button.disabled = false;
         }
       });
+
+      localizeDates();
+      applyFilter();
     })();
   </script>
 </body>

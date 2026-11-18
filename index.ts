@@ -46,7 +46,18 @@ function unauthorized(): Response {
 
 interface PageMetadata {
   title: string;
+  // publishedAt is kept for backwards compatibility with older listings/tools.
+  publishedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface PageEntry {
+  key: string;
+  title: string;
   publishedAt: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // KV metadata is serialized into an HTTP header, so keep the stored title ASCII-only.
@@ -88,19 +99,21 @@ function escapeHtml(str: string): string {
 }
 
 // Fetch every key from KV (handles pagination automatically)
-async function listAllPages(
-  env: Env
-): Promise<{ key: string; title: string; publishedAt: string }[]> {
-  const entries: { key: string; title: string; publishedAt: string }[] = [];
+async function listAllPages(env: Env): Promise<PageEntry[]> {
+  const entries: PageEntry[] = [];
   let cursor: string | undefined;
 
   while (true) {
     const page = await env.HTML_BIN.list<PageMetadata>({ cursor, limit: 1000 });
     for (const k of page.keys) {
+      const publishedAt = k.metadata?.publishedAt ?? "";
       entries.push({
         key: k.name,
         title: k.metadata?.title || k.name,
-        publishedAt: k.metadata?.publishedAt ?? "",
+        publishedAt,
+        createdAt: k.metadata?.createdAt ?? "",
+        // Legacy entries only have publishedAt, which already tracks the last write.
+        updatedAt: k.metadata?.updatedAt ?? publishedAt,
       });
     }
     if (page.list_complete) break;
@@ -111,17 +124,47 @@ async function listAllPages(
   return entries;
 }
 
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+// Stable server-side fallback; the browser re-formats it for the local timezone.
+function formatDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${day} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+}
+
 // Render the HTML listing page
 async function renderListing(env: Env, origin: string): Promise<Response> {
   const pages = await listAllPages(env);
 
   const rows = pages
-    .map(
-      (p) => `
-        <li class="row">
-          <a href="${origin}/${encodeURIComponent(p.key)}">
-            <span class="title">${escapeHtml(p.title)}</span>
-            <span class="slug">/${escapeHtml(p.key)}</span>
+    .map((p) => {
+      const displayDate = p.updatedAt || p.createdAt;
+      const dateLabel =
+        p.createdAt && p.updatedAt && p.createdAt !== p.updatedAt
+          ? `Created ${formatDate(p.createdAt)} · Updated ${formatDate(p.updatedAt)}`
+          : `Updated ${formatDate(displayDate)}`;
+
+      const date = displayDate
+        ? `<span class="date" title="${escapeHtml(dateLabel)}"><time datetime="${escapeHtml(
+            displayDate
+          )}" data-date>${escapeHtml(formatDate(displayDate))}</time></span>`
+        : "";
+
+      return `
+        <li class="row" data-row data-title="${escapeHtml(
+          p.title
+        )}" data-slug="${escapeHtml(p.key)}">
+          <a href="${origin}/${encodeURIComponent(p.key)}" target="_blank" rel="noopener noreferrer">
+            <span class="meta">
+              <span class="title">${escapeHtml(p.title)}</span>
+              <span class="slug">/${escapeHtml(p.key)}</span>
+            </span>
+            ${date}
           </a>
           <button type="button" class="delete" data-delete data-key="${escapeHtml(
             p.key
@@ -130,13 +173,13 @@ async function renderListing(env: Env, origin: string): Promise<Response> {
           )}" title="Delete">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
           </button>
-        </li>`
-    )
+        </li>`;
+    })
     .join("");
 
   const list = pages.length
-    ? `<ul>${rows}</ul>`
-    : `<div class="empty">No pages published yet. POST some HTML to get started.</div>`;
+    ? `<ul id="list">${rows}</ul><div id="empty" class="empty" hidden>No pages published yet. POST some HTML to get started.</div>`
+    : `<ul id="list" hidden></ul><div id="empty" class="empty">No pages published yet. POST some HTML to get started.</div>`;
 
   const html = listingTemplate
     .replaceAll("{{count}}", String(pages.length))
@@ -193,15 +236,22 @@ export default {
         );
       }
 
-      // Check if this is a new page or an overwrite (for the response only)
-      const existing = await env.HTML_BIN.get(key);
+      // Check if this is a new page or an overwrite, and preserve the original
+      // creation time when a page is replaced.
+      const existing = await env.HTML_BIN.getWithMetadata<PageMetadata>(key);
+      const isNew = existing.value === null;
+      const now = new Date().toISOString();
+      const createdAt =
+        existing.metadata?.createdAt || existing.metadata?.publishedAt || now;
 
       // KV put() overwrites if the key exists — this gives us
       // "replace on same title" behavior automatically.
       await env.HTML_BIN.put(key, htmlContent, {
         metadata: {
           title: toAsciiTitle(rawTitle),
-          publishedAt: new Date().toISOString(),
+          createdAt,
+          updatedAt: now,
+          publishedAt: now,
         },
       });
 
@@ -211,9 +261,9 @@ export default {
           url: publicUrl,
           key,
           title: rawTitle,
-          isNew: existing === null,
+          isNew,
         }),
-        { status: existing === null ? 201 : 200, headers: { "Content-Type": "application/json" } }
+        { status: isNew ? 201 : 200, headers: { "Content-Type": "application/json" } }
       );
     }
 

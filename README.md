@@ -89,6 +89,8 @@ Or open `http://localhost:8787/submit` in a browser for a form with an HTML text
 
 The listing page (`GET /`) also has a Delete button next to each page. It reuses the Basic auth credentials the browser captured when the listing loaded, so no separate prompt is needed. Deleting uses `DELETE /:key`.
 
+The listing also includes a client-side search box that filters by title and URL/slug without any network requests, opens pages in a new tab, and shows the last updated date when KV metadata has one (`createdAt`/`updatedAt`, falling back to the legacy `publishedAt` field). The first publish stores `createdAt`; later overwrites keep it and only move `updatedAt`.
+
 ## Deploy
 
 ```bash
