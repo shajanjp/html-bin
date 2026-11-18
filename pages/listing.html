@@ -18,7 +18,8 @@
     a:hover { border-color: #6366f1; }
     .title { font-weight: 500; }
     .slug { color: #888; font-size: 0.85rem; font-family: ui-monospace, monospace; }
-    .delete { padding: 0 14px; border: 1px solid #e5e5e5; border-radius: 8px; background: #fff; color: #dc2626; font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+    .delete { display: flex; align-items: center; justify-content: center; width: 44px; padding: 0; border: 1px solid #e5e5e5; border-radius: 8px; background: #fff; color: #dc2626; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+    .delete svg { display: block; }
     .delete:hover { border-color: #dc2626; background: #fef2f2; }
     .delete:disabled { opacity: 0.6; cursor: not-allowed; }
     .empty { color: #888; padding: 40px; text-align: center; border: 2px dashed #e5e5e5; border-radius: 8px; }
