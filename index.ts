@@ -155,17 +155,26 @@ async function renderListing(env: Env, origin: string): Promise<Response> {
           )}" data-date>${escapeHtml(formatDate(displayDate))}</time></span>`
         : "";
 
+      const pageUrl = `${origin}/${encodeURIComponent(p.key)}`;
+
       return `
         <li class="row" data-row data-title="${escapeHtml(
           p.title
         )}" data-slug="${escapeHtml(p.key)}">
-          <a href="${origin}/${encodeURIComponent(p.key)}" target="_blank" rel="noopener noreferrer">
+          <a href="${pageUrl}" target="_blank" rel="noopener noreferrer">
             <span class="meta">
               <span class="title">${escapeHtml(p.title)}</span>
               <span class="slug">/${escapeHtml(p.key)}</span>
             </span>
             ${date}
+            <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
           </a>
+          <button type="button" class="copy" data-copy data-url="${escapeHtml(
+            pageUrl
+          )}" aria-label="Copy link to ${escapeHtml(p.title)}" title="Copy link">
+            <svg class="icon-copy" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            <svg class="icon-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+          </button>
           <button type="button" class="delete" data-delete data-key="${escapeHtml(
             p.key
           )}" data-title="${escapeHtml(p.title)}" aria-label="Delete ${escapeHtml(

@@ -5,40 +5,103 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Published Pages ({{count}})</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; background: #fafafa; }
-    h1 { font-size: 1.5rem; margin-bottom: 4px; }
-    .count { color: #888; font-size: 0.9rem; margin-bottom: 24px; }
-    .count a { display: inline; padding: 0; border: none; background: none; color: #6366f1; text-decoration: none; }
-    .count a:hover { text-decoration: underline; }
-    ul { list-style: none; padding: 0; margin: 0; }
+    :root {
+      color-scheme: light;
+      --bg: #f5f5f7;
+      --surface: #ffffff;
+      --text: #1d1d1f;
+      --muted: #86868b;
+      --secondary: #6e6e73;
+      --border: #d2d2d7;
+      --hairline: rgba(0, 0, 0, 0.06);
+      --accent: #0071e3;
+      --accent-hover: #0077ed;
+      --focus: rgba(0, 113, 227, 0.18);
+      --chip: #f5f5f7;
+      --danger: #de071c;
+      --shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+      --shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 64px 24px 96px; color: var(--text); background: var(--bg); min-height: 100vh; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+
+    .hero { text-align: center; margin-bottom: 36px; }
+    .eyebrow { margin: 0 0 10px; font-size: 14px; font-weight: 500; color: var(--muted); letter-spacing: -0.01em; }
+    h1 { margin: 0 0 18px; font-size: clamp(2.5rem, 6vw, 3.5rem); font-weight: 600; line-height: 1.05; letter-spacing: -0.03em; }
+
+    .count-badge { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 980px; background: var(--surface); border: 1px solid var(--hairline); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03); font-size: 14px; color: var(--secondary); }
+    .count-badge #count { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .count-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+    .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .search { position: relative; flex: 1; min-width: 0; }
+    .search svg { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); width: 17px; height: 17px; color: var(--muted); pointer-events: none; }
+    .search input { width: 100%; height: 48px; padding: 0 16px 0 44px; font-family: inherit; font-size: 15px; letter-spacing: -0.01em; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; appearance: none; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+    .search input::placeholder { color: var(--muted); }
+    .search input::-webkit-search-cancel-button { cursor: pointer; }
+    .search input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--focus); }
+
+    .button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; flex-shrink: 0; height: 48px; padding: 0 24px; border-radius: 980px; background: var(--accent); color: #fff; font-size: 15px; font-weight: 500; letter-spacing: -0.01em; text-decoration: none; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); transition: background 0.2s ease, transform 0.1s ease; }
+    .button:hover { background: var(--accent-hover); }
+    .button:active { transform: scale(0.98); }
+    .button svg { width: 17px; height: 17px; }
+
+    ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
     [hidden] { display: none !important; }
-    li { margin-bottom: 8px; }
-    .row { display: flex; gap: 8px; }
-    .row a { flex: 1; min-width: 0; }
-    a { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; text-decoration: none; color: inherit; transition: border-color 0.15s; }
-    a:hover { border-color: #6366f1; }
-    .meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-    .title { font-weight: 500; }
-    .slug { color: #888; font-size: 0.85rem; font-family: ui-monospace, monospace; }
-    .date { flex-shrink: 0; color: #888; font-size: 0.8rem; white-space: nowrap; }
-    .filters { margin-bottom: 16px; }
-    .filters input { width: 100%; box-sizing: border-box; padding: 10px 12px; font-family: inherit; font-size: 0.9rem; color: inherit; background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; }
-    .filters input:focus { outline: none; border-color: #6366f1; }
-    .delete { display: flex; align-items: center; justify-content: center; width: 44px; padding: 0; border: 1px solid #e5e5e5; border-radius: 8px; background: #fff; color: #dc2626; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
-    .delete svg { display: block; }
-    .delete:hover { border-color: #dc2626; background: #fef2f2; }
-    .delete:disabled { opacity: 0.6; cursor: not-allowed; }
-    .empty { color: #888; padding: 40px; text-align: center; border: 2px dashed #e5e5e5; border-radius: 8px; }
-    #status { font-size: 0.9rem; color: #dc2626; min-height: 1.2em; margin-bottom: 12px; }
+    .row { display: flex; gap: 10px; }
+    .row a { flex: 1; min-width: 0; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 20px; background: var(--surface); border: 1px solid var(--hairline); border-radius: 16px; box-shadow: var(--shadow); text-decoration: none; color: inherit; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+    .row a:hover { border-color: rgba(0, 0, 0, 0.12); box-shadow: var(--shadow-hover); }
+    .meta { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+    .title { font-size: 17px; font-weight: 600; letter-spacing: -0.022em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .slug { font-family: "SF Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .date { flex-shrink: 0; padding: 5px 10px; border-radius: 8px; background: var(--chip); color: var(--secondary); font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .chevron { flex-shrink: 0; width: 16px; height: 16px; color: #c7c7cc; }
+
+    .copy, .delete { display: flex; align-items: center; justify-content: center; width: 52px; padding: 0; border: 1px solid var(--hairline); border-radius: 16px; background: var(--surface); color: var(--muted); box-shadow: var(--shadow); cursor: pointer; transition: color 0.15s, border-color 0.15s, background 0.15s; }
+    .copy svg, .delete svg { display: block; }
+    .copy .icon-check { display: none; }
+    .copy:hover { color: var(--accent); border-color: rgba(0, 113, 227, 0.25); background: rgba(0, 113, 227, 0.05); }
+    .copy.copied { color: #34c759; border-color: rgba(52, 199, 89, 0.3); background: rgba(52, 199, 89, 0.08); }
+    .copy.copied .icon-copy { display: none; }
+    .copy.copied .icon-check { display: block; }
+    .delete:hover { color: var(--danger); border-color: rgba(222, 7, 28, 0.25); background: rgba(222, 7, 28, 0.05); }
+    .copy:disabled, .delete:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .button:focus-visible, .row a:focus-visible, .copy:focus-visible, .delete:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--focus); }
+
+    .empty { padding: 64px 24px; text-align: center; color: var(--muted); background: var(--surface); border: 1px solid var(--hairline); border-radius: 18px; font-size: 15px; }
+    #status { color: var(--danger); font-size: 14px; margin: 0 0 12px; text-align: center; }
     #status:empty { display: none; }
+
+    @media (max-width: 640px) {
+      body { padding: 44px 18px 72px; }
+      .hero { margin-bottom: 28px; }
+      .toolbar { flex-direction: column; align-items: stretch; }
+      .button { width: 100%; }
+      .row a { padding: 16px; }
+      .copy, .delete { width: 48px; }
+    }
   </style>
 </head>
 <body>
-  <h1>Published Pages</h1>
-  <div class="count"><span id="count">{{count}}</span> <span id="pagesLabel">{{pagesLabel}}</span> · <a href="/submit">Submit new page</a></div>
-  <div class="filters">
-    <input id="search" type="search" placeholder="Search by title or URL" autocomplete="off" spellcheck="false" aria-label="Search pages by title or URL" />
+  <header class="hero">
+    <p class="eyebrow">HTML Bin</p>
+    <h1>Published Pages</h1>
+    <div class="count-badge" aria-live="polite"><span class="count-dot" aria-hidden="true"></span><span id="count">{{count}}</span> <span id="pagesLabel">{{pagesLabel}}</span></div>
+  </header>
+
+  <div class="toolbar">
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="search" type="search" placeholder="Search by title or URL" autocomplete="off" spellcheck="false" aria-label="Search pages by title or URL" />
+    </div>
+    <a class="button" href="/submit">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      Submit new page
+    </a>
   </div>
+
   <div id="status" role="status"></div>
   <div id="pages">{{list}}</div>
   <div id="noResults" class="empty" hidden>No pages match your search.</div>
@@ -106,9 +169,72 @@
         }
       }
 
+      async function copyText(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+          try {
+            await navigator.clipboard.writeText(text);
+            return;
+          } catch (e) {
+            // Fall through to the legacy path when the clipboard is blocked.
+          }
+        }
+
+        return new Promise(function (resolve, reject) {
+          var textarea = document.createElement("textarea");
+          textarea.value = text;
+          textarea.setAttribute("readonly", "");
+          textarea.style.position = "fixed";
+          textarea.style.top = "0";
+          textarea.style.opacity = "0";
+          document.body.appendChild(textarea);
+          textarea.select();
+
+          try {
+            document.execCommand("copy")
+              ? resolve()
+              : reject(new Error("Copy failed"));
+          } catch (error) {
+            reject(error);
+          } finally {
+            document.body.removeChild(textarea);
+          }
+        });
+      }
+
+      async function copyLink(button) {
+        var url = button.getAttribute("data-url");
+        if (!url) return;
+
+        if (!button.dataset.label) {
+          button.dataset.label = button.getAttribute("aria-label") || "Copy link";
+        }
+
+        try {
+          await copyText(url);
+          status.textContent = "";
+          button.classList.add("copied");
+          button.setAttribute("aria-label", "Link copied");
+
+          clearTimeout(button.copyTimer);
+          button.copyTimer = setTimeout(function () {
+            button.classList.remove("copied");
+            button.setAttribute("aria-label", button.dataset.label);
+          }, 1600);
+        } catch (error) {
+          status.textContent = "Could not copy the link.";
+        }
+      }
+
       search.addEventListener("input", applyFilter);
 
       pages.addEventListener("click", async function (event) {
+        var copyButton = event.target.closest("[data-copy]");
+        if (copyButton) {
+          event.preventDefault();
+          await copyLink(copyButton);
+          return;
+        }
+
         var button = event.target.closest("[data-delete]");
         if (!button) return;
 

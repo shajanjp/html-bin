@@ -5,41 +5,112 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Submit HTML</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; background: #fafafa; }
-    h1 { font-size: 1.5rem; margin-bottom: 4px; }
-    .sub { color: #888; font-size: 0.9rem; margin-bottom: 24px; }
-    form { display: flex; flex-direction: column; gap: 16px; }
-    label { font-size: 0.9rem; font-weight: 500; }
-    textarea, input { width: 100%; box-sizing: border-box; font-family: ui-monospace, monospace; font-size: 0.85rem; padding: 12px; border: 1px solid #e5e5e5; border-radius: 8px; background: #fff; }
-    textarea { min-height: 280px; resize: vertical; }
-    input { font-family: inherit; }
-    details { background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px 16px; }
-    summary { cursor: pointer; font-size: 0.9rem; font-weight: 500; }
-    .fields { display: grid; gap: 12px; margin-top: 12px; }
-    button { align-self: flex-start; padding: 10px 18px; border: none; border-radius: 8px; background: #6366f1; color: #fff; font-size: 0.95rem; font-weight: 500; cursor: pointer; }
-    button:hover { background: #4f46e5; }
-    button:disabled { opacity: 0.6; cursor: not-allowed; }
-    #status { font-size: 0.9rem; color: #555; min-height: 1.2em; }
-    #status.error { color: #dc2626; }
-    #result a { color: #6366f1; font-size: 0.9rem; word-break: break-all; }
+    :root {
+      color-scheme: light;
+      --bg: #f5f5f7;
+      --surface: #ffffff;
+      --text: #1d1d1f;
+      --muted: #86868b;
+      --secondary: #6e6e73;
+      --border: #d2d2d7;
+      --hairline: rgba(0, 0, 0, 0.06);
+      --accent: #0071e3;
+      --accent-hover: #0077ed;
+      --focus: rgba(0, 113, 227, 0.18);
+      --chip: #f5f5f7;
+      --danger: #de071c;
+      --shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    }
+
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif; max-width: 680px; margin: 0 auto; padding: 64px 24px 96px; color: var(--text); background: var(--bg); min-height: 100vh; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+
+    .hero { text-align: center; margin-bottom: 30px; }
+    .eyebrow { margin: 0 0 10px; font-size: 14px; font-weight: 500; color: var(--muted); letter-spacing: -0.01em; }
+    h1 { margin: 0 0 14px; font-size: clamp(2.25rem, 5vw, 3rem); font-weight: 600; line-height: 1.05; letter-spacing: -0.03em; }
+    .lede { margin: 0 auto; max-width: 520px; color: var(--secondary); font-size: 17px; line-height: 1.5; letter-spacing: -0.01em; }
+
+    form { display: flex; flex-direction: column; gap: 20px; background: var(--surface); border: 1px solid var(--hairline); border-radius: 20px; padding: 28px; box-shadow: var(--shadow); }
+
+    .field { display: flex; flex-direction: column; gap: 8px; }
+    label { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+
+    .field input,
+    .field textarea {
+      width: 100%;
+      color: var(--text);
+      background: var(--chip);
+      border: 1px solid transparent;
+      border-radius: 12px;
+      font-family: inherit;
+      font-size: 15px;
+      letter-spacing: -0.01em;
+      transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .field input { height: 46px; padding: 0 14px; }
+    .field textarea { min-height: 320px; padding: 14px; resize: vertical; font-family: "SF Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.6; }
+    .field textarea::placeholder { color: var(--muted); }
+    .field input:focus,
+    .field textarea:focus { outline: none; background: var(--surface); border-color: var(--accent); box-shadow: 0 0 0 4px var(--focus); }
+
+    details { background: var(--chip); border-radius: 14px; }
+    summary { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; font-size: 14px; font-weight: 600; letter-spacing: -0.01em; cursor: pointer; list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: ""; width: 7px; height: 7px; margin-right: 2px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg); transition: transform 0.2s ease; }
+    details[open] summary::after { transform: rotate(-135deg); }
+    .fields { display: grid; gap: 14px; padding: 2px 16px 18px; }
+    .fields .field input { background: var(--surface); border-color: var(--border); }
+    .fields .field input:focus { border-color: var(--accent); }
+
+    #submit { height: 48px; border: none; border-radius: 980px; background: var(--accent); color: #fff; font-family: inherit; font-size: 15px; font-weight: 500; letter-spacing: -0.01em; cursor: pointer; transition: background 0.2s ease, transform 0.1s ease; }
+    #submit:hover { background: var(--accent-hover); }
+    #submit:active { transform: scale(0.99); }
+    #submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    #submit:focus-visible,
+    summary:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--focus); }
+
+    #status { margin: -4px 0 0; text-align: center; color: var(--secondary); font-size: 14px; }
+    #status.error { color: var(--danger); }
+    #result { text-align: center; font-size: 14px; word-break: break-all; }
+    #result a { color: var(--accent); text-decoration: none; }
+    #result a:hover { text-decoration: underline; }
+    #status:empty,
+    #result:empty { display: none; }
+
+    .footer { margin: 22px 0 0; text-align: center; }
+    .footer a { color: var(--secondary); font-size: 14px; text-decoration: none; }
+    .footer a:hover { color: var(--accent); }
+    .footer a:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--focus); border-radius: 6px; }
+
+    @media (max-width: 640px) {
+      body { padding: 44px 18px 72px; }
+      .hero { margin-bottom: 26px; }
+      form { padding: 22px; border-radius: 18px; }
+      .field textarea { min-height: 260px; }
+    }
   </style>
 </head>
 <body>
-  <h1>Submit HTML</h1>
-  <div class="sub">Paste a full HTML document. The &lt;title&gt; tag determines the URL; posting the same title overwrites the page.</div>
+  <header class="hero">
+    <p class="eyebrow">HTML Bin</p>
+    <h1>Submit HTML</h1>
+    <p class="lede">Paste a full HTML document. The &lt;title&gt; tag sets the URL, and posting the same title updates the existing page.</p>
+  </header>
 
   <form id="form">
-    <label for="html">HTML</label>
-    <textarea id="html" name="html" placeholder="&lt;!DOCTYPE html&gt;&#10;&lt;html&gt;&lt;head&gt;&lt;title&gt;My Page&lt;/title&gt;&lt;/head&gt;&lt;body&gt;...&lt;/body&gt;&lt;/html&gt;" required></textarea>
+    <div class="field">
+      <label for="html">HTML</label>
+      <textarea id="html" name="html" placeholder="&lt;!DOCTYPE html&gt;&#10;&lt;html&gt;&lt;head&gt;&lt;title&gt;My Page&lt;/title&gt;&lt;/head&gt;&lt;body&gt;...&lt;/body&gt;&lt;/html&gt;" required></textarea>
+    </div>
 
     <details>
       <summary>Credentials</summary>
       <div class="fields">
-        <div>
+        <div class="field">
           <label for="username">Username</label>
           <input id="username" name="username" autocomplete="username" required />
         </div>
-        <div>
+        <div class="field">
           <label for="password">Password</label>
           <input id="password" name="password" type="password" autocomplete="current-password" required />
         </div>
@@ -50,6 +121,8 @@
     <div id="status" role="status"></div>
     <div id="result"></div>
   </form>
+
+  <p class="footer"><a href="/">View published pages</a></p>
 
   <script>
     (function () {
@@ -104,7 +177,7 @@
           link.href = data.url;
           link.textContent = data.url;
           link.target = "_blank";
-          link.rel = "noopener";
+          link.rel = "noopener noreferrer";
           result.appendChild(link);
         } catch (error) {
           status.className = "error";
