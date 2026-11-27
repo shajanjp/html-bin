@@ -63,10 +63,19 @@
     .fields .field input { background: var(--surface); border-color: var(--border); }
     .fields .field input:focus { border-color: var(--accent); }
 
-    #generate { height: 48px; border: none; border-radius: 980px; background: var(--accent); color: #fff; font-family: inherit; font-size: 15px; font-weight: 500; letter-spacing: -0.01em; cursor: pointer; transition: background 0.2s ease, transform 0.1s ease; }
+    #generate { display: inline-flex; align-items: center; justify-content: center; gap: 9px; height: 48px; border: none; border-radius: 980px; background: var(--accent); color: #fff; font-family: inherit; font-size: 15px; font-weight: 500; letter-spacing: -0.01em; cursor: pointer; transition: background 0.2s ease, transform 0.1s ease; }
     #generate:hover { background: var(--accent-hover); }
     #generate:active { transform: scale(0.99); }
     #generate:disabled { opacity: 0.5; cursor: not-allowed; }
+    #generate.loading:disabled { opacity: 1; cursor: progress; background: var(--accent-hover); }
+
+    /* Spinner sits beside the label and only appears while generating. */
+    .spinner { display: none; width: 16px; height: 16px; border: 2px solid rgba(255, 255, 255, 0.35); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    #generate.loading .spinner { display: block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      .spinner { animation-duration: 1.6s; }
+    }
     #generate:focus-visible,
     summary:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--focus); }
 
@@ -124,7 +133,10 @@
       </div>
     </details>
 
-    <button type="submit" id="generate">Generate with AI</button>
+    <button type="submit" id="generate">
+      <span class="spinner" aria-hidden="true"></span>
+      <span id="generateLabel">Generate with AI</span>
+    </button>
     <div id="status" role="status"></div>
     <div id="result"></div>
   </form>
@@ -137,6 +149,7 @@
       var status = document.getElementById("status");
       var result = document.getElementById("result");
       var generate = document.getElementById("generate");
+      var generateLabel = document.getElementById("generateLabel");
       var username = document.getElementById("username");
 
       try {
@@ -152,10 +165,17 @@
         return tokens + " tokens, " + cost + " (" + mode + ")";
       }
 
+      function setLoading(loading) {
+        generate.disabled = loading;
+        generate.classList.toggle("loading", loading);
+        generate.setAttribute("aria-busy", loading ? "true" : "false");
+        generateLabel.textContent = loading ? "Generating\u2026" : "Generate with AI";
+      }
+
       function fail(message) {
         status.className = "error";
         status.textContent = message;
-        generate.disabled = false;
+        setLoading(false);
       }
 
       form.addEventListener("submit", async function (event) {
@@ -163,7 +183,7 @@
         status.className = "";
         status.textContent = "";
         result.textContent = "";
-        generate.disabled = true;
+        setLoading(true);
 
         var prompt = document.getElementById("prompt").value.trim();
         var tags = document.getElementById("tags").value;
@@ -209,7 +229,7 @@
         } catch (error) {
           fail("Network error: " + error.message);
         } finally {
-          generate.disabled = false;
+          setLoading(false);
         }
       });
     })();
