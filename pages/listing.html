@@ -46,6 +46,8 @@
     .button:hover { background: var(--accent-hover); }
     .button:active { transform: scale(0.98); }
     .button svg { width: 17px; height: 17px; }
+    .button.secondary { background: var(--surface); color: var(--accent); border: 1px solid var(--border); box-shadow: none; }
+    .button.secondary:hover { background: var(--chip); }
 
     ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
     [hidden] { display: none !important; }
@@ -150,6 +152,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input id="search" type="search" placeholder="Search by title, URL, or tag" autocomplete="off" spellcheck="false" aria-label="Search pages by title, URL, or tag" />
     </div>
+    <a class="button secondary" href="/prompt">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg>
+      Generate with AI
+    </a>
     <a class="button" href="/submit">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
       Submit new page

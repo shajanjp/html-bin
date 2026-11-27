@@ -1,5 +1,6 @@
 import listingTemplate from "./pages/listing.html";
 import submitTemplate from "./pages/submit.html";
+import promptTemplate from "./pages/prompt.html";
 import { CREATE_SYSTEM_PROMPT, UPDATE_SYSTEM_PROMPT } from "./prompts";
 
 export interface Env {
@@ -590,9 +591,19 @@ async function renderListing(env: Env, origin: string): Promise<Response> {
   });
 }
 
-// Render the submission form page
+// Render the manual HTML submission form
 function renderSubmitPage(): Response {
   return new Response(submitTemplate, {
+    headers: {
+      "Content-Type": "text/html;charset=UTF-8",
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
+// Render the AI prompt form (submits to POST /prompt)
+function renderPromptPage(): Response {
+  return new Response(promptTemplate, {
     headers: {
       "Content-Type": "text/html;charset=UTF-8",
       "Cache-Control": "no-store",
@@ -979,9 +990,13 @@ export default {
         return renderListing(env, url.origin);
       }
 
-      // Submission form
+      // Submission forms
       if (key === "submit") {
         return renderSubmitPage();
+      }
+
+      if (key === "prompt") {
+        return renderPromptPage();
       }
 
       const htmlContent = await env.HTML_BIN.get(key);

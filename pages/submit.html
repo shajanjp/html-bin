@@ -49,7 +49,6 @@
     }
     .field input { height: 46px; padding: 0 14px; }
     .field textarea { min-height: 320px; padding: 14px; resize: vertical; font-family: "SF Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.6; }
-    .field textarea.prompt { min-height: 140px; font-family: inherit; font-size: 15px; }
     .field textarea::placeholder { color: var(--muted); }
     .field input:focus,
     .field textarea:focus { outline: none; background: var(--surface); border-color: var(--accent); box-shadow: 0 0 0 4px var(--focus); }
@@ -64,14 +63,11 @@
     .fields .field input { background: var(--surface); border-color: var(--border); }
     .fields .field input:focus { border-color: var(--accent); }
 
-    #submit, #generate { height: 48px; border: none; border-radius: 980px; background: var(--accent); color: #fff; font-family: inherit; font-size: 15px; font-weight: 500; letter-spacing: -0.01em; cursor: pointer; transition: background 0.2s ease, transform 0.1s ease; }
-    #submit:hover, #generate:hover { background: var(--accent-hover); }
-    #submit:active, #generate:active { transform: scale(0.99); }
-    #submit:disabled, #generate:disabled { opacity: 0.5; cursor: not-allowed; }
-    #generate { background: var(--surface); color: var(--accent); border: 1px solid var(--border); }
-    #generate:hover { background: var(--chip); }
+    #submit { height: 48px; border: none; border-radius: 980px; background: var(--accent); color: #fff; font-family: inherit; font-size: 15px; font-weight: 500; letter-spacing: -0.01em; cursor: pointer; transition: background 0.2s ease, transform 0.1s ease; }
+    #submit:hover { background: var(--accent-hover); }
+    #submit:active { transform: scale(0.99); }
+    #submit:disabled { opacity: 0.5; cursor: not-allowed; }
     #submit:focus-visible,
-    #generate:focus-visible,
     summary:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--focus); }
 
     #status { margin: -4px 0 0; text-align: center; color: var(--secondary); font-size: 14px; }
@@ -99,16 +95,10 @@
   <header class="hero">
     <p class="eyebrow">HTML Bin</p>
     <h1>Submit HTML</h1>
-    <p class="lede">Paste a full HTML document, or describe a page and let DeepSeek build it. The &lt;title&gt; tag sets the URL, and posting the same title updates the existing page.</p>
+    <p class="lede">Paste a full HTML document. The &lt;title&gt; tag sets the URL, and posting the same title updates the existing page.</p>
   </header>
 
   <form id="form">
-    <div class="field">
-      <label for="prompt">AI prompt</label>
-      <textarea id="prompt" name="prompt" class="prompt" placeholder="A pricing page for a small SaaS with three tiers and a monthly/yearly toggle"></textarea>
-      <p class="hint">Describe the page, then choose Generate with AI. The HTML box is ignored for generation.</p>
-    </div>
-
     <div class="field">
       <label for="html">HTML</label>
       <textarea id="html" name="html" placeholder="&lt;!DOCTYPE html&gt;&#10;&lt;html&gt;&lt;head&gt;&lt;title&gt;My Page&lt;/title&gt;&lt;/head&gt;&lt;body&gt;...&lt;/body&gt;&lt;/html&gt;"></textarea>
@@ -135,12 +125,11 @@
     </details>
 
     <button type="submit" id="submit" value="html">Publish</button>
-    <button type="submit" id="generate" class="secondary" value="prompt">Generate with AI</button>
     <div id="status" role="status"></div>
     <div id="result"></div>
   </form>
 
-  <p class="footer"><a href="/">View published pages</a></p>
+  <p class="footer"><a href="/prompt">Generate with AI</a> &middot; <a href="/">View published pages</a></p>
 
   <script>
     (function () {
@@ -148,7 +137,6 @@
       var status = document.getElementById("status");
       var result = document.getElementById("result");
       var button = document.getElementById("submit");
-      var generate = document.getElementById("generate");
       var username = document.getElementById("username");
 
       try {
@@ -156,51 +144,22 @@
         if (savedUser) username.value = savedUser;
       } catch (e) {}
 
-      function formatUsage(usage) {
-        if (!usage) return "";
-        var tokens = (usage.promptTokens || 0) + (usage.completionTokens || 0);
-        var cost = typeof usage.costInr === "number" ? "\u20b9" + usage.costInr.toFixed(4) : "";
-        var mode = usage.peak ? "peak" : "off-peak";
-        return tokens + " tokens, " + cost + " (" + mode + ")";
-      }
-
       form.addEventListener("submit", async function (event) {
         event.preventDefault();
         status.className = "";
         status.textContent = "";
         result.textContent = "";
         button.disabled = true;
-        generate.disabled = true;
 
-        var mode = event.submitter && event.submitter.value === "prompt" ? "prompt" : "html";
         var html = document.getElementById("html").value;
-        var prompt = document.getElementById("prompt").value.trim();
         var tags = document.getElementById("tags").value;
         var password = document.getElementById("password").value;
 
-        if (mode === "html" && !html.trim()) {
+        if (!html.trim()) {
           status.className = "error";
-          status.textContent = "Paste some HTML or generate a page with AI.";
+          status.textContent = "Paste some HTML to publish.";
           button.disabled = false;
-          generate.disabled = false;
           return;
-        }
-
-        if (mode === "prompt") {
-          if (!prompt) {
-            status.className = "error";
-            status.textContent = "Describe the page you want to generate.";
-            button.disabled = false;
-            generate.disabled = false;
-            return;
-          }
-          if (prompt.length > 2000) {
-            status.className = "error";
-            status.textContent = "Prompts are limited to 2000 characters.";
-            button.disabled = false;
-            generate.disabled = false;
-            return;
-          }
         }
 
         try {
@@ -208,32 +167,14 @@
         } catch (e) {}
 
         try {
-          var response;
-          if (mode === "prompt") {
-            var payload = { prompt: prompt };
-            var tagList = tags.split(",").map(function (tag) {
-              return tag.trim();
-            }).filter(Boolean);
-            if (tagList.length) payload.tags = tagList;
-
-            response = await fetch("/prompt", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": "Basic " + btoa(username.value + ":" + password)
-              },
-              body: JSON.stringify(payload)
-            });
-          } else {
-            response = await fetch("/?tags=" + encodeURIComponent(tags), {
-              method: "POST",
-              headers: {
-                "Content-Type": "text/html",
-                "Authorization": "Basic " + btoa(username.value + ":" + password)
-              },
-              body: html
-            });
-          }
+          var response = await fetch("/?tags=" + encodeURIComponent(tags), {
+            method: "POST",
+            headers: {
+              "Content-Type": "text/html",
+              "Authorization": "Basic " + btoa(username.value + ":" + password)
+            },
+            body: html
+          });
 
           var data = {};
           try {
@@ -246,8 +187,7 @@
             return;
           }
 
-          status.textContent = (data.isNew ? "Published." : "Updated existing page.") +
-            (data.usage ? " " + formatUsage(data.usage) : "");
+          status.textContent = data.isNew ? "Published." : "Updated existing page.";
           var link = document.createElement("a");
           link.href = data.url;
           link.textContent = data.url;
@@ -259,7 +199,6 @@
           status.textContent = "Network error: " + error.message;
         } finally {
           button.disabled = false;
-          generate.disabled = false;
         }
       });
     })();

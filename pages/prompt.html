@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Generate with AI</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f5f7;
+      --surface: #ffffff;
+      --text: #1d1d1f;
+      --muted: #86868b;
+      --secondary: #6e6e73;
+      --border: #d2d2d7;
+      --hairline: rgba(0, 0, 0, 0.06);
+      --accent: #0071e3;
+      --accent-hover: #0077ed;
+      --focus: rgba(0, 113, 227, 0.18);
+      --chip: #f5f5f7;
+      --danger: #de071c;
+      --shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    }
+
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif; max-width: 680px; margin: 0 auto; padding: 64px 24px 96px; color: var(--text); background: var(--bg); min-height: 100vh; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+
+    .hero { text-align: center; margin-bottom: 30px; }
+    .eyebrow { margin: 0 0 10px; font-size: 14px; font-weight: 500; color: var(--muted); letter-spacing: -0.01em; }
+    h1 { margin: 0 0 14px; font-size: clamp(2.25rem, 5vw, 3rem); font-weight: 600; line-height: 1.05; letter-spacing: -0.03em; }
+    .lede { margin: 0 auto; max-width: 520px; color: var(--secondary); font-size: 17px; line-height: 1.5; letter-spacing: -0.01em; }
+
+    form { display: flex; flex-direction: column; gap: 20px; background: var(--surface); border: 1px solid var(--hairline); border-radius: 20px; padding: 28px; box-shadow: var(--shadow); }
+
+    .field { display: flex; flex-direction: column; gap: 8px; }
+    label { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+
+    .field input,
+    .field textarea {
+      width: 100%;
+      color: var(--text);
+      background: var(--chip);
+      border: 1px solid transparent;
+      border-radius: 12px;
+      font-family: inherit;
+      font-size: 15px;
+      letter-spacing: -0.01em;
+      transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .field input { height: 46px; padding: 0 14px; }
+    .field textarea { min-height: 160px; padding: 14px; resize: vertical; line-height: 1.6; }
+    .field textarea::placeholder { color: var(--muted); }
+    .field input:focus,
+    .field textarea:focus { outline: none; background: var(--surface); border-color: var(--accent); box-shadow: 0 0 0 4px var(--focus); }
+    .hint { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
+
+    details { background: var(--chip); border-radius: 14px; }
+    summary { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; font-size: 14px; font-weight: 600; letter-spacing: -0.01em; cursor: pointer; list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: ""; width: 7px; height: 7px; margin-right: 2px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg); transition: transform 0.2s ease; }
+    details[open] summary::after { transform: rotate(-135deg); }
+    .fields { display: grid; gap: 14px; padding: 2px 16px 18px; }
+    .fields .field input { background: var(--surface); border-color: var(--border); }
+    .fields .field input:focus { border-color: var(--accent); }
+
+    #generate { height: 48px; border: none; border-radius: 980px; background: var(--accent); color: #fff; font-family: inherit; font-size: 15px; font-weight: 500; letter-spacing: -0.01em; cursor: pointer; transition: background 0.2s ease, transform 0.1s ease; }
+    #generate:hover { background: var(--accent-hover); }
+    #generate:active { transform: scale(0.99); }
+    #generate:disabled { opacity: 0.5; cursor: not-allowed; }
+    #generate:focus-visible,
+    summary:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--focus); }
+
+    #status { margin: -4px 0 0; text-align: center; color: var(--secondary); font-size: 14px; }
+    #status.error { color: var(--danger); }
+    #result { text-align: center; font-size: 14px; word-break: break-all; }
+    #result a { color: var(--accent); text-decoration: none; }
+    #result a:hover { text-decoration: underline; }
+    #status:empty,
+    #result:empty { display: none; }
+
+    .footer { margin: 22px 0 0; text-align: center; }
+    .footer a { color: var(--secondary); font-size: 14px; text-decoration: none; }
+    .footer a:hover { color: var(--accent); }
+    .footer a:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--focus); border-radius: 6px; }
+
+    @media (max-width: 640px) {
+      body { padding: 44px 18px 72px; }
+      .hero { margin-bottom: 26px; }
+      form { padding: 22px; border-radius: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <p class="eyebrow">HTML Bin</p>
+    <h1>Generate with AI</h1>
+    <p class="lede">Describe the page you want and DeepSeek writes it. The generated &lt;title&gt; sets the URL, and generating the same title updates the existing page.</p>
+  </header>
+
+  <form id="form">
+    <div class="field">
+      <label for="prompt">AI prompt</label>
+      <textarea id="prompt" name="prompt" placeholder="A pricing page for a small SaaS with three tiers and a monthly/yearly toggle"></textarea>
+      <p class="hint">Be specific about layout, content, and style. Up to 2000 characters.</p>
+    </div>
+
+    <div class="field">
+      <label for="tags">Tags</label>
+      <input id="tags" name="tags" placeholder="design, work, demo" autocomplete="off" spellcheck="false" />
+      <p class="hint">Separate tags with commas. Leave empty to clear existing tags when updating.</p>
+    </div>
+
+    <details>
+      <summary>Credentials</summary>
+      <div class="fields">
+        <div class="field">
+          <label for="username">Username</label>
+          <input id="username" name="username" autocomplete="username" required />
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required />
+        </div>
+      </div>
+    </details>
+
+    <button type="submit" id="generate">Generate with AI</button>
+    <div id="status" role="status"></div>
+    <div id="result"></div>
+  </form>
+
+  <p class="footer"><a href="/submit">Paste HTML instead</a> &middot; <a href="/">View published pages</a></p>
+
+  <script>
+    (function () {
+      var form = document.getElementById("form");
+      var status = document.getElementById("status");
+      var result = document.getElementById("result");
+      var generate = document.getElementById("generate");
+      var username = document.getElementById("username");
+
+      try {
+        var savedUser = sessionStorage.getItem("htmlBinUser");
+        if (savedUser) username.value = savedUser;
+      } catch (e) {}
+
+      function formatUsage(usage) {
+        if (!usage) return "";
+        var tokens = (usage.promptTokens || 0) + (usage.completionTokens || 0);
+        var cost = typeof usage.costInr === "number" ? "\u20b9" + usage.costInr.toFixed(4) : "";
+        var mode = usage.peak ? "peak" : "off-peak";
+        return tokens + " tokens, " + cost + " (" + mode + ")";
+      }
+
+      function fail(message) {
+        status.className = "error";
+        status.textContent = message;
+        generate.disabled = false;
+      }
+
+      form.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        status.className = "";
+        status.textContent = "";
+        result.textContent = "";
+        generate.disabled = true;
+
+        var prompt = document.getElementById("prompt").value.trim();
+        var tags = document.getElementById("tags").value;
+
+        if (!prompt) return fail("Describe the page you want to generate.");
+        if (prompt.length > 2000) return fail("Prompts are limited to 2000 characters.");
+
+        try {
+          sessionStorage.setItem("htmlBinUser", username.value);
+        } catch (e) {}
+
+        try {
+          var payload = { prompt: prompt };
+          var tagList = tags.split(",").map(function (tag) {
+            return tag.trim();
+          }).filter(Boolean);
+          if (tagList.length) payload.tags = tagList;
+
+          var response = await fetch("/prompt", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Basic " + btoa(username.value + ":" + document.getElementById("password").value)
+            },
+            body: JSON.stringify(payload)
+          });
+
+          var data = {};
+          try {
+            data = await response.json();
+          } catch (e) {}
+
+          if (!response.ok) return fail(data.error || "Request failed with status " + response.status);
+
+          status.textContent = (data.isNew ? "Published." : "Updated existing page.") +
+            (data.usage ? " " + formatUsage(data.usage) : "");
+          var link = document.createElement("a");
+          link.href = data.url;
+          link.textContent = data.url;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          result.appendChild(link);
+        } catch (error) {
+          fail("Network error: " + error.message);
+        } finally {
+          generate.disabled = false;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -31,7 +31,7 @@ The DeepSeek system prompts live in `prompts.ts` so they can be reviewed and edi
 
 ### Authentication
 
-`POST /`, `PATCH /:key`, `DELETE /:key`, `POST /prompt`, `POST /:key/prompt`, and the listing at `GET /` require HTTP Basic auth. Credentials are read from the `BASIC_AUTH_USERNAME` and `BASIC_AUTH_PASSWORD` Worker secrets and are never stored in the repo. Published pages and the `/submit` form remain public.
+`POST /`, `PATCH /:key`, `DELETE /:key`, `POST /prompt`, `POST /:key/prompt`, and the listing at `GET /` require HTTP Basic auth. Credentials are read from the `BASIC_AUTH_USERNAME` and `BASIC_AUTH_PASSWORD` Worker secrets and are never stored in the repo. Published pages and the `/submit` and `/prompt` forms remain public.
 
 The prompt routes also need a DeepSeek API key. `DEEPSEEK_API_KEY` is required; `DEEPSEEK_MODEL` is optional and defaults to `deepseek-flash`. `USD_INR_RATE` is optional and sets the INR per USD rate used for costs (default `88`).
 
@@ -220,13 +220,13 @@ curl -u "admin:change-me" http://localhost:8787/                 # HTML listing 
 curl -u "admin:change-me" "http://localhost:8787/?format=json"  # listing as JSON
 ```
 
-Or open `http://localhost:8787/submit` in a browser for a form with an HTML textarea and credential fields. It calls the same `POST /` endpoint via `fetch` and links to the published page.
+Or open `http://localhost:8787/submit` in a browser for a form with an HTML textarea and credential fields. It calls the same `POST /` endpoint via `fetch` and links to the published page. `/prompt` hosts the equivalent form for AI generation and posts to `POST /prompt`.
 
 The listing page (`GET /`) also has a Delete button next to each page. It reuses the Basic auth credentials the browser captured when the listing loaded, so no separate prompt is needed. Deleting uses `DELETE /:key`.
 
 The listing also includes a client-side search box that filters by title, URL/slug, and tags without any network requests, opens pages in a new tab, shows the last updated date when KV metadata has one (`createdAt`/`updatedAt`, falling back to the legacy `publishedAt` field), and has copy and tag buttons. Copy places the page's absolute URL on the clipboard (with a legacy fallback for non-secure contexts). The tag button opens a dialog where tags can be added or removed, saved through `PATCH /:key`. The first publish stores `createdAt`; later overwrites keep it and only move `updatedAt`.
 
-The `/submit` page has both a raw HTML box and an AI prompt box. Publish sends the HTML to `POST /`; Generate with AI sends the prompt to `POST /prompt` and shows the token count and estimated cost after the page is created.
+Submission and generation are separate pages. `/submit` has the raw HTML box and Publish sends the HTML to `POST /`. `/prompt` has the AI prompt box and Generate sends it to `POST /prompt`, then shows the token count and estimated cost after the page is created. Each page links to the other.
 
 ## Deploy
 
