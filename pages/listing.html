@@ -60,6 +60,7 @@
     .slug { font-family: "SF Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .row-end { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
     .date { flex-shrink: 0; padding: 5px 10px; border-radius: 8px; background: var(--chip); color: var(--secondary); font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .usage { flex-shrink: 0; padding: 5px 10px; border-radius: 8px; background: var(--chip); color: var(--secondary); font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .chevron { flex-shrink: 0; width: 16px; height: 16px; color: #c7c7cc; transition: color 0.2s ease, transform 0.2s ease; }
     .row:hover .chevron { color: var(--muted); transform: translateX(2px); }
 
@@ -132,6 +133,7 @@
     /* Very narrow screens: drop the date badge so the title keeps its room. */
     @media (max-width: 480px) {
       .date { display: none; }
+      .usage { font-size: 11px; padding: 4px 8px; }
       .row-link { padding-left: 14px; gap: 10px; }
     }
   </style>
